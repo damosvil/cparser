@@ -16,13 +16,16 @@
 using namespace cparser;
 
 
-int main() {
+int main()
+{
 	cparser_paths *cpaths = new cparser_paths();
-	cpaths->AddPath(_T "");
+	cpaths->AddPath(_T "/usr/include");
+	cpaths->AddPath(_T "./src/");
+	cpaths->AddPath(_T "./src/cparser");
 
+	cparser::cparser cp(_T"src/main.cpp", cpaths);
 
-//	cparser::cparser cp(_T"src/main.cpp", &cpp);
-//	printf("Hola.\r\n");
+	printf("Hola.\r\n");
 
 	return 0;
 }

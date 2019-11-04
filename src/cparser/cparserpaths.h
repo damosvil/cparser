@@ -26,7 +26,7 @@ public:
 
 	void AddPath(const uint8_t *path);
 	uint32_t GetPathsCount();
-	const uint8_t GetPathByIndex(uint32_t i);
+	const uint8_t * GetPathByIndex(uint32_t i);
 	void DeletePathByIndex(uint32_t i);
 
 };
