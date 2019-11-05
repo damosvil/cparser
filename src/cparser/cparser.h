@@ -11,24 +11,22 @@
 
 namespace cparser {
 
+class cparser_block;
+
 class cparser {
 
 private:
 	// Parsing states
 	enum parsing_state_e
 	{
-		PARSING_STATE_NORMAL = 0,
-		PARSING_STATE_SKIPPING_C_COMMENT = 1,
-		PARSING_STATE_SKIPPING_CPP_COMMENT = 2
+		PARSING_STATE_IDLE = 0,
+		PARSING_STATE_C_COMMENT = 1,
+		PARSING_STATE_CPP_COMMENT = 2,
+		PARSING_STATE_SENTENCE = 3
 	};
 
 	// Parsers of included files
-	cparser **m_parsers;
-	uint32_t m_parsers_size = 0;
-	uint32_t m_parsers_count = 0;
-
-private:
-	void StoreParser(cparser *p);
+	cparser_block *block;
 
 public:
 	cparser(const uint8_t *filename, const cparser_paths *paths);

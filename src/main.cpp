@@ -23,7 +23,7 @@ int main()
 	cpaths->AddPath(_T "./src/");
 	cpaths->AddPath(_T "./src/cparser");
 
-	cparser::cparser cp(_T"src/main.cpp", cpaths);
+	cparser::cparser cp(_T"project_examples/opengl/main.c", cpaths);
 
 	printf("Hola.\r\n");
 
