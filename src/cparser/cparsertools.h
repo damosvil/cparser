@@ -25,9 +25,13 @@
 /* Maximum comment lenght */
 #define MAX_COMMENT_LENGTH			65534
 
-/* String duplication functions */
+/* String functions */
 const uint8_t *StrDup(const char *s);
 const uint8_t *StrDup(const uint8_t *s);
+const uint8_t *StrStr(const uint8_t *u, const char *v);
+const uint8_t *StrStr(const uint8_t *u, const uint8_t *v);
+const bool StrEq(const uint8_t *u, const char *v);
+const bool StrEq(const uint8_t *u, const uint8_t *v);
 
 void AddToPtrArray(void *data, void **&array, uint32_t &size, uint32_t &count);
 

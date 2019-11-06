@@ -25,6 +25,26 @@ const uint8_t *StrDup(const uint8_t *s)
 	return (const uint8_t *)strdup(_t s);
 }
 
+const uint8_t *StrStr(const uint8_t *u, const char *v)
+{
+	return (uint8_t *)strstr((const char *)u, v);
+}
+
+const uint8_t *StrStr(const uint8_t *u, const uint8_t *v)
+{
+	return (uint8_t *)strstr((const char *)u, (const char *)v);
+}
+
+const bool StrEq(const uint8_t *u, const char *v)
+{
+	return strcmp((const char *)u, v) == 0;
+}
+
+const bool StrEq(const uint8_t *u, const uint8_t *v)
+{
+	return strcmp((const char *)u, (const char *)v) == 0;
+}
+
 void AddToPtrArray(void *data, void **(&array), uint32_t &size, uint32_t &count)
 {
 	if (count == size)
