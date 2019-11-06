@@ -29,8 +29,7 @@
 const uint8_t *StrDup(const char *s);
 const uint8_t *StrDup(const uint8_t *s);
 
-template<typename T>
-void AddToPtrArray(T data, T *(&array), uint32_t &size, uint32_t &count);
+void AddToPtrArray(void *data, void **&array, uint32_t &size, uint32_t &count);
 
 
 #endif /* CPARSERTOOLS_H_ */

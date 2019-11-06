@@ -65,7 +65,8 @@ private:
 
 	};
 
-	object_s *CreateChildren(object_s *p, object_type_e t);
+	object_s *BeginChildren(object_s *p, object_type_e t);
+	object_s *EndChildren(object_s *c, const uint8_t *data);
 
 public:
 	cparser(const uint8_t *filename, const cparser_paths *paths);

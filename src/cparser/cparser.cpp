@@ -23,7 +23,7 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 	object_s *current_object;
 
 	// Prepare current object
-	current_object = CreateChildren(NULL, OBJECT_TYPE_SOURCE_FILE);
+	current_object = BeginChildren(NULL, OBJECT_TYPE_SOURCE_FILE);
 
 	// Open file
 	FILE *f = fopen(_t filename, "rb");
@@ -48,17 +48,36 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 		if (buffer_length == 0 && (b == ' ' || b == '\t' || b == '\r' || b == '\n'))
 			continue;
 
+		// Add byte to buffer
+		buffer[buffer_length++] = (uint8_t)b;
+
+		// Parsing
 		switch (current_object->type)
 		{
 
 		case OBJECT_TYPE_SOURCE_FILE:
-			if (buffer_length == 1 && buffer[0] == '/' && b == '*')
+			if (buffer_length == 2 && buffer[0] == '/' && buffer[1] == '*')
 			{
-				current_object = CreateChildren(current_object, OBJECT_TYPE_C_COMMENT);
+				current_object = BeginChildren(current_object, OBJECT_TYPE_C_COMMENT);
+			}
+			else if (buffer_length == 2 && buffer[0] == '/' && buffer[1] == '/')
+			{
+				current_object = BeginChildren(current_object, OBJECT_TYPE_CPP_COMMENT);
 			}
 			break;
 
 		case OBJECT_TYPE_C_COMMENT:
+			if (buffer[buffer_length - 2] == '*' && buffer[buffer_length - 1] == '/')
+			{
+				// Close string and reset buffer
+				buffer[buffer_length] = 0;
+				buffer_length = 0;
+
+				current_object = EndChildren(current_object, buffer);
+			}
+			break;
+
+		case OBJECT_TYPE_CPP_COMMENT:
 			break;
 
 		default:
@@ -66,9 +85,6 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 			break;
 
 		}
-
-		// Add byte to buffer
-		buffer[buffer_length++] = (uint8_t)b;
 	}
 
 	fclose(f);
@@ -78,7 +94,7 @@ cparser::~cparser()
 {
 }
 
-cparser::object_s *cparser::CreateChildren(object_s *p, cparser::object_type_e t)
+cparser::object_s *cparser::BeginChildren(object_s *p, cparser::object_type_e t)
 {
 	cparser::object_s *o = new cparser::object_s;
 
@@ -91,10 +107,20 @@ cparser::object_s *cparser::CreateChildren(object_s *p, cparser::object_type_e t
 	o->data = NULL;
 
 	// Add object to parent
-	AddToPtrArray<object_s *>(o, o->children, o->children_size, o->children_count);
+	AddToPtrArray(o, (void **&)o->children, o->children_size, o->children_count);
 
 	// Return children
 	return o;
 }
+
+cparser::object_s *cparser::EndChildren(object_s *c, const uint8_t *data)
+{
+	// Assign string data
+	c->data = StrDup(data);
+
+	// Return to parent object
+	return c->parent;
+}
+
 
 } /* namespace cparser */
