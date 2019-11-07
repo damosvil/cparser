@@ -46,12 +46,15 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 		}
 
 		// Skip empty characters if no object is being read at this time
-		if (buffer_length == 0 && (b == ' ' || b == '\t' || b == '\r' || b == '\n'))
+		if (buffer_length == 0 && IsEmptyChar(b))
 			continue;
 
 		// Add byte to buffer
-		buffer[buffer_length++] = (uint8_t)b;
-		buffer[buffer_length] = 0;
+		if (buffer_length < MAX_SENTENCE_LENGTH)
+		{
+			buffer[buffer_length++] = (uint8_t)b;
+			buffer[buffer_length] = 0;
+		}
 
 		// Parsing
 		switch (current_object->type)
@@ -60,25 +63,37 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 		case OBJECT_TYPE_SOURCE_FILE:
 			if (StrEq(buffer, "/*"))
 			{
+				// Begin child
 				current_object = BeginChild(current_object, OBJECT_TYPE_C_COMMENT, row, column);
 			}
 			else if (StrEq(buffer, "//"))
 			{
+				// Begin child
 				current_object = BeginChild(current_object, OBJECT_TYPE_CPP_COMMENT, row, column);
 			}
 			else if (StrEq(buffer, "#include"))
 			{
+				// Reset buffer and begin child
+				buffer_length = 0;
 				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE, row, column);
+			}
+			else if (IsEmptyChar(b))
+			{
+				// Add internal error
+				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+				current_object = EndChild(current_object, _T"cparser unknown expression");
+
+				// Throw exception
+				throw "cparser unknown expression";
 			}
 			break;
 
 		case OBJECT_TYPE_C_COMMENT:
 			if (buffer[buffer_length - 2] == '*' && buffer[buffer_length - 1] == '/')
 			{
-				// Reset buffer
+				// Clear buffer and end child
 				buffer_length = 0;
-
-				// End children and return to parent
+				buffer[buffer_length] = 0;
 				current_object = EndChild(current_object, buffer);
 			}
 			break;
@@ -86,22 +101,46 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 		case OBJECT_TYPE_CPP_COMMENT:
 			if (buffer[buffer_length - 1] == '\n')
 			{
-				// Reset buffer
+				// Clear buffer and end child
 				buffer_length = 0;
-
-				// End children and return to parent
+				buffer[buffer_length] = 0;
 				current_object = EndChild(current_object, buffer);
 			}
 			break;
 
 		case OBJECT_TYPE_INCLUDE:
-			if (buffer[buffer_length - 1] == '\"' || buffer[buffer_length - 1] == '>')
+			if (buffer_length > 0 && IsEmptyChar(b))
 			{
-				// Reset buffer
-				buffer_length = 0;
+				// Remove last character
+				buffer_length--;
+				buffer[buffer_length] = 0;
 
-				// End children and return to parent
-				current_object = EndChild(current_object, buffer);
+				// Evaluate filename
+				if (buffer[0] == '\"' && buffer[buffer_length - 1] == '\"')
+				{
+					// Add filename and return to parent
+					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+					current_object = EndChild(current_object, buffer);
+					current_object = current_object->parent;
+				}
+				else if (buffer[0] == '<' && buffer[buffer_length - 1] == '>')
+				{
+					// Add filename and return to parent
+					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+					current_object = EndChild(current_object, buffer);
+					current_object = current_object->parent;
+				}
+				else
+				{
+					// Add syntax error and return to parent
+					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+					current_object = EndChild(current_object, _T"#include expects \"FILENAME\" or <FILENAME>");
+					current_object = current_object->parent;
+				}
+
+				// Clear buffer
+				buffer_length = 0;
+				buffer[buffer_length] = 0;
 			}
 			break;
 

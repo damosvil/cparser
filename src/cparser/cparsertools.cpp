@@ -45,6 +45,12 @@ const bool StrEq(const uint8_t *u, const uint8_t *v)
 	return strcmp((const char *)u, (const char *)v) == 0;
 }
 
+bool IsEmptyChar(uint8_t c)
+{
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
+
 void AddToPtrArray(void *data, void **(&array), uint32_t &size, uint32_t &count)
 {
 	if (count == size)

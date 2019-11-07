@@ -32,6 +32,8 @@ const uint8_t *StrStr(const uint8_t *u, const char *v);
 const uint8_t *StrStr(const uint8_t *u, const uint8_t *v);
 const bool StrEq(const uint8_t *u, const char *v);
 const bool StrEq(const uint8_t *u, const uint8_t *v);
+bool IsEmptyChar(uint8_t c);
+
 
 void AddToPtrArray(void *data, void **&array, uint32_t &size, uint32_t &count);
 
