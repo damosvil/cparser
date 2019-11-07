@@ -64,23 +64,23 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 			if (StrEq(buffer, "/*"))
 			{
 				// Begin child
-				current_object = BeginChild(current_object, OBJECT_TYPE_C_COMMENT, row, column);
+				current_object = BeginChild(current_object, OBJECT_TYPE_C_COMMENT, row, column - buffer_length);
 			}
 			else if (StrEq(buffer, "//"))
 			{
 				// Begin child
-				current_object = BeginChild(current_object, OBJECT_TYPE_CPP_COMMENT, row, column);
+				current_object = BeginChild(current_object, OBJECT_TYPE_CPP_COMMENT, row, column - buffer_length);
 			}
 			else if (StrEq(buffer, "#include"))
 			{
 				// Reset buffer and begin child
+				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE, row, column - buffer_length);
 				buffer_length = 0;
-				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE, row, column);
 			}
 			else if (IsEmptyChar(b))
 			{
 				// Add internal error
-				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+				current_object = BeginChild(current_object, OBJECT_TYPE_ERROR, row, column - buffer_length);
 				current_object = EndChild(current_object, _T"cparser unknown expression");
 
 				// Throw exception
@@ -91,20 +91,20 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 		case OBJECT_TYPE_C_COMMENT:
 			if (buffer[buffer_length - 2] == '*' && buffer[buffer_length - 1] == '/')
 			{
-				// Clear buffer and end child
+				// End child, and clear buffer
+				current_object = EndChild(current_object, buffer);
 				buffer_length = 0;
 				buffer[buffer_length] = 0;
-				current_object = EndChild(current_object, buffer);
 			}
 			break;
 
 		case OBJECT_TYPE_CPP_COMMENT:
 			if (buffer[buffer_length - 1] == '\n')
 			{
-				// Clear buffer and end child
+				// End child, and clear buffer
+				current_object = EndChild(current_object, buffer);
 				buffer_length = 0;
 				buffer[buffer_length] = 0;
-				current_object = EndChild(current_object, buffer);
 			}
 			break;
 
@@ -119,21 +119,17 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 				if (buffer[0] == '\"' && buffer[buffer_length - 1] == '\"')
 				{
 					// Add filename and return to parent
-					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
 					current_object = EndChild(current_object, buffer);
-					current_object = current_object->parent;
 				}
 				else if (buffer[0] == '<' && buffer[buffer_length - 1] == '>')
 				{
 					// Add filename and return to parent
-					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
 					current_object = EndChild(current_object, buffer);
-					current_object = current_object->parent;
 				}
 				else
 				{
 					// Add syntax error and return to parent
-					current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE_FILENAME, row, column);
+					current_object = BeginChild(current_object, OBJECT_TYPE_ERROR, row, column);
 					current_object = EndChild(current_object, _T"#include expects \"FILENAME\" or <FILENAME>");
 					current_object = current_object->parent;
 				}
@@ -167,7 +163,7 @@ cparser::object_s *cparser::BeginChild(object_s *parent, cparser::object_type_e 
 	child->parent = parent;
 	child->row = row;
 	child->column = column;
-	child->children = new cparser::object_s *[0];
+	child->children = NULL;
 	child->children_size = 0;
 	child->children_count = 0;
 	child->data = NULL;

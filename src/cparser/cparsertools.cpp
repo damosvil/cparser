@@ -53,14 +53,21 @@ bool IsEmptyChar(uint8_t c)
 
 void AddToPtrArray(void *data, void **(&array), uint32_t &size, uint32_t &count)
 {
+	// Check array is full
 	if (count == size)
 	{
+		// Create new array and new size
 		uint32_t ss = size + ARRAY_GROWTH_SPEED;
 		void **aa = new void *[ss];
 
-		memcpy(aa, array, sizeof(void *) * size);
-		delete array;
+		// Copy old array into the new one if the old one exists
+		if (array != NULL)
+		{
+			memcpy(aa, array, sizeof(void *) * size);
+			delete array;
+		}
 
+		// Update array and size variables
 		array = aa;
 		size = ss;
 	}
