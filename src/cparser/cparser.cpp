@@ -77,6 +77,27 @@ cparser::cparser(const uint8_t *filename, const cparser_paths *paths)
 				current_object = BeginChild(current_object, OBJECT_TYPE_INCLUDE, row, column - buffer_length);
 				buffer_length = 0;
 			}
+			else if (StrEq(buffer, "static") || StrEq(buffer, "extern"))
+			{
+				// Reset buffer and begin child
+				current_object = BeginChild(current_object, OBJECT_TYPE_VARIABLE_SCOPE, row, column - buffer_length);
+				current_object = EndChild(current_object, buffer);
+				buffer_length = 0;
+			}
+			else if (StrEq(buffer, "void") || StrEq(buffer, "char") || StrEq(buffer, "int") || StrEq(buffer, "float") || StrEq(buffer, "double"))
+			{
+				// Reset buffer and begin child
+				current_object = BeginChild(current_object, OBJECT_TYPE_VARIABLE_BASIC_TYPE, row, column - buffer_length);
+				current_object = EndChild(current_object, buffer);
+				buffer_length = 0;
+			}
+			else if (StrEq(buffer, "short") || StrEq(buffer, "long") || StrEq(buffer, "signed") || StrEq(buffer, "unsigned"))
+			{
+				// Reset buffer and begin child
+				current_object = BeginChild(current_object, OBJECT_TYPE_VARIABLE_BASIC_TYPE_MODIFIER, row, column - buffer_length);
+				current_object = EndChild(current_object, buffer);
+				buffer_length = 0;
+			}
 			else if (IsEmptyChar(b))
 			{
 				// Add internal error
