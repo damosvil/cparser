@@ -142,12 +142,14 @@ bool cparser_tokenizer::NextToken(FILE *f, token_s *tt)
 		tt->row = row;
 		tt->column = column;
 
-		// Copy first char to str
+		// Copy first 2 chars to str
+		*p++ = last_char;
+		last_char = NextChar(f, row, column);
 		*p++ = last_char;
 		last_char = NextChar(f, row, column);
 
 		// Copy string literal
-		while ((last_char != EOF) && !(*(p - 1) == '\"' && *(p - 2) == '\\'))
+		while ((last_char != EOF) && ((*(p - 1) != '\"') || (*(p - 1) == '\"' && *(p - 2) == '\\')))
 		{
 			*p++ = last_char;
 			last_char = NextChar(f, row, column);
@@ -171,9 +173,11 @@ bool cparser_tokenizer::NextToken(FILE *f, token_s *tt)
 		// Copy first char to str
 		*p++ = last_char;
 		last_char = NextChar(f, row, column);
+		*p++ = last_char;
+		last_char = NextChar(f, row, column);
 
 		// Copy string literal
-		while ((last_char != EOF) && (*(p - 1) != '\'' || (*(p - 1) == '\'' && *(p - 2) != '\\')))
+		while ((last_char != EOF) && ((*(p - 1) != '\'') || (*(p - 1) == '\'' && *(p - 2) == '\\')))
 		{
 			*p++ = last_char;
 			last_char = NextChar(f, row, column);

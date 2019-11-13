@@ -111,7 +111,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	// Process tokens from file
 	while (cparser_tokenizer::NextToken(f, &tt))
 	{
-		printf("R%d, C%d, %d:\r\n%s\r\n", tt.row, tt.column, tt.type, tt.str);
+		printf("R%d, C%d, %d:%s\n", tt.row, tt.column, tt.type, tt.str);
 	}
 
 	return oo;

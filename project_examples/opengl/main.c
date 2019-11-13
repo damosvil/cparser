@@ -15,6 +15,7 @@ static int dblBuf[]  = {GLX_RGBA, GLX_DEPTH_SIZE, 16, GLX_DOUBLEBUFFER, None};
 
 Display   *p_display;
 Window     win;
+char c = ' ';
 
 void fatalError(char *message)
 {
