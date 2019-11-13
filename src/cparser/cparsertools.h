@@ -28,13 +28,14 @@
 /* String functions */
 const uint8_t *StrDup(const char *s);
 const uint8_t *StrDup(const uint8_t *s);
+const uint32_t StrLen(const char *s);
+const uint32_t StrLen(const uint8_t *s);
 const uint8_t *StrStr(const uint8_t *u, const char *v);
 const uint8_t *StrStr(const uint8_t *u, const uint8_t *v);
 const bool StrEq(const uint8_t *u, const char *v);
 const bool StrEq(const uint8_t *u, const uint8_t *v);
-bool IsEmptyChar(uint8_t c);
-
-
+bool IsCHeaderFilename(const uint8_t *filename);
+bool IsCSourceFilename(const uint8_t *filename);
 void AddToPtrArray(void *data, void **&array, uint32_t &size, uint32_t &count);
 
 

@@ -15,33 +15,28 @@ class cparser_block;
 
 class cparser {
 
-private:
-	// Parsing states
-	enum parsing_state_e
-	{
-		PARSING_STATE_IDLE = 0,
-		PARSING_STATE_C_COMMENT = 1,
-		PARSING_STATE_CPP_COMMENT = 2,
-		PARSING_STATE_SENTENCE = 3
-	};
-
+public:
 	// Parse object type
 	enum object_type_e
 	{
 		OBJECT_TYPE_C_COMMENT = 0,
 		OBJECT_TYPE_CPP_COMMENT,
+		OBJECT_TYPE_PREPROCESSOR_EXPRESSION,
+		OBJECT_TYPE_C_EXPRESSION,
 		OBJECT_TYPE_DEFINE,
 		OBJECT_TYPE_DEFINE_IDENTIFIER,
 		OBJECT_TYPE_DEFINE_BODY,
 		OBJECT_TYPE_INCLUDE,
 		OBJECT_TYPE_VARIABLE_BASIC_TYPE,
 		OBJECT_TYPE_VARIABLE_BASIC_TYPE_MODIFIER,
+		OBJECT_TYPE_POINTER,
 		OBJECT_TYPE_TYPEDEF,
 		OBJECT_TYPE_ENUM,
 		OBJECT_TYPE_STRUCT,
 		OBJECT_TYPE_UNION,
-		OBJECT_TYPE_VARIABLE_SCOPE,
+		OBJECT_TYPE_SCOPE,
 		OBJECT_TYPE_VARIABLE_MODIFIER,
+		OBJECT_TYPE_VARIABLE_QUALIFIER,
 		OBJECT_TYPE_VARIABLE_TYPE,
 		OBJECT_TYPE_VARIABLE_IDENTIFIER,
 		OBJECT_TYPE_FUNCTION_TYPE,
@@ -78,12 +73,27 @@ private:
 
 	};
 
+private:
+	// Parsing states
+	enum parsing_state_e
+	{
+		PARSING_STATE_IDLE = 0,
+		PARSING_STATE_C_COMMENT = 1,
+		PARSING_STATE_CPP_COMMENT = 2,
+		PARSING_STATE_SENTENCE = 3
+	};
+
+	const cparser_paths *paths;
+	const uint8_t *filename;
+
 	object_s *BeginChild(object_s *parent, object_type_e type, uint32_t row, uint32_t column);
 	object_s *EndChild(object_s *child, const uint8_t *data);
 
 public:
-	cparser(const uint8_t *filename, const cparser_paths *paths);
+	cparser(const cparser_paths *paths, const uint8_t *filename);
 	virtual ~cparser();
+
+	object_s *Parse(object_s *current_object);
 
 };
 
