@@ -171,7 +171,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				}
 				else if (StrEq(tt.str, "define"))
 				{
-					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE;
+					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE;
 					s = STATE_DEFINE;
 				}
 				else if (StrEq(tt.str, "pragma"))
