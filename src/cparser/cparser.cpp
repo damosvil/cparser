@@ -25,6 +25,14 @@ static const char *keywords[] = {
 	NULL
 };
 
+enum states_e
+{
+	STATE_IDLE,
+	STATE_PREPROCESSOR,
+	STATE_INCLUDE,
+	STATE_DEFINE,
+	STATE_PRAGMA,
+};
 
 namespace cparser {
 
@@ -60,6 +68,7 @@ cparser::object_s *cparser::AddChild(object_s *parent, cparser::object_type_e ty
 	child->children = NULL;
 	child->children_size = 0;
 	child->children_count = 0;
+	child->info = NULL;
 
 	// Add token data if any
 	if (token)
@@ -98,34 +107,91 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	if (f == NULL)
 		throw "cparser::Parse cannot open source file";
 
-	// Create parsing object in case it doesn't exist
+	// Create root parse object
 	if (oo == NULL)
 	{
 		oo = AddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
+		oo->row = 0;
+		oo->column = 0;
+		oo->data = _T StrDup(filename);
 	}
 
 	// Process tokens from file
-	while (cparser_tokenizer::NextToken(f, &tt))
+	states_e s = STATE_IDLE;
+	uint32_t flags = 0;
+	while (cparser_tokenizer::NextToken(f, &tt, flags))
 	{
+		// Reset flags after read
+		flags = 0;
 		printf("R%d, C%d, %d:%s\n", tt.row, tt.column, tt.type, tt.str);
 
-		switch (tt.type)
-		{
-
-		case CPARSER_TOKEN_TYPE_C_COMMENT:
+		if (tt.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
 			oo = AddChild(oo, OBJECT_TYPE_C_COMMENT, &tt);
 			oo = oo->parent;
-			break;
-
-		case CPARSER_TOKEN_TYPE_CPP_COMMENT:
+		}
+		else if (tt.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) {
 			oo = AddChild(oo, OBJECT_TYPE_CPP_COMMENT, &tt);
 			oo = oo->parent;
-			break;
-
-		default:
-			break;
-
 		}
+		else
+		{
+			// Close previous tokens
+			if (s == STATE_INCLUDE && oo->type == OBJECT_TYPE_INCLUDE)
+			{
+				if (tt.row == oo->row)
+				{
+					oo = AddChild(oo, OBJECT_TYPE_WARNING, &tt);
+					oo->info = _T StrDup("Extra token at the end of include directive");
+					oo = oo->parent;
+				}
+
+				oo = oo->parent;
+				s = STATE_IDLE;
+			}
+
+			// Check new tokens
+			if (s == STATE_IDLE)
+			{
+				if (tt.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR)
+				{
+					if (tt.str[0] == '#')
+						s = STATE_PREPROCESSOR;
+				}
+				else
+				{
+					throw "TODO";
+				}
+			}
+			else if (s == STATE_PREPROCESSOR)
+			{
+				if (StrEq(tt.str, "include"))
+				{
+					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE;
+					s = STATE_INCLUDE;
+				}
+				else if (StrEq(tt.str, "define"))
+				{
+					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE;
+					s = STATE_DEFINE;
+				}
+				else if (StrEq(tt.str, "pragma"))
+				{
+					s = STATE_PRAGMA;
+				}
+				else
+				{
+					// Unexpected token
+					oo = AddChild(oo, OBJECT_TYPE_ERROR, &tt);
+					oo = oo->parent;
+					s = STATE_IDLE;
+				}
+			}
+			else if (s == STATE_INCLUDE)
+			{
+				oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+			}
+		}
+
 	}
 
 	return oo;

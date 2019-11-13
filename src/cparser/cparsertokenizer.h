@@ -10,14 +10,18 @@
 
 namespace cparser {
 
+#define CPARSER_TOKEN_FLAG_PARSE_INCLUDE		1
+#define CPARSER_TOKEN_FLAG_PARSE_DEFINE			2
+
 // Token type
 enum token_type_e
 {
-	CPARSER_TOKEN_TYPE_SINGLE = 0,
+	CPARSER_TOKEN_TYPE_SINGLE_CHAR = 0,
 	CPARSER_TOKEN_TYPE_IDENTIFIER,
 	CPARSER_TOKEN_TYPE_NUMBER_LITERAL,
 	CPARSER_TOKEN_TYPE_STRING_LITERAL,
 	CPARSER_TOKEN_TYPE_INCLUDE_LITERAL,
+	CPARSER_TOKEN_TYPE_DEFINE_LITERAL,
 	CPARSER_TOKEN_TYPE_CHAR_LITERAL,
 	CPARSER_TOKEN_TYPE_OPERATOR,
 	CPARSER_TOKEN_TYPE_C_COMMENT,
@@ -41,7 +45,7 @@ private:
 	static int16_t NextChar(FILE *f, uint32_t &row, uint32_t &column);
 
 public:
-	static bool NextToken(FILE *f, token_s *tt);
+	static bool NextToken(FILE *f, token_s *tt, uint32_t flags);
 
 };
 
