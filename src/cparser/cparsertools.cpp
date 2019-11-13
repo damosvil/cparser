@@ -25,6 +25,20 @@ const uint8_t *StrDup(const uint8_t *s)
 	return (const uint8_t *)strdup(_t s);
 }
 
+const uint32_t StrLen(const char *s)
+{
+	const char *t = s;
+
+	while (*t++);
+
+	return t - s - 1;
+}
+
+const uint32_t StrLen(const uint8_t *s)
+{
+	return StrLen(_t s);
+}
+
 const uint8_t *StrStr(const uint8_t *u, const char *v)
 {
 	return (uint8_t *)strstr((const char *)u, v);
@@ -45,11 +59,25 @@ const bool StrEq(const uint8_t *u, const uint8_t *v)
 	return strcmp((const char *)u, (const char *)v) == 0;
 }
 
-bool IsEmptyChar(uint8_t c)
+bool IsCHeaderFilename(const uint8_t *filename)
 {
-	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+	uint32_t len = StrLen(filename);
+
+	if (len < 3 || filename[len - 2] != '.' || filename[len - 1] != 'h')
+		return false;
+
+	return true;
 }
 
+bool IsCSourceFilename(const uint8_t *filename)
+{
+	uint32_t len = StrLen(filename);
+
+	if (len < 3 || filename[len - 2] != '.' || filename[len - 1] != 'c')
+		return false;
+
+	return true;
+}
 
 void AddToPtrArray(void *data, void **(&array), uint32_t &size, uint32_t &count)
 {

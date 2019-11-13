@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include "cparser/cparsertools.h"
 #include "cparser/cparserpaths.h"
+#include "cparser/cparsertokenizer.h"
 #include "cparser/cparser.h"
 
 
@@ -23,9 +24,12 @@ int main()
 	cpaths->AddPath(_T "./src/");
 	cpaths->AddPath(_T "./src/cparser");
 
-	cparser::cparser cp(_T"project_examples/opengl/main.c", cpaths);
+	cparser::cparser cp(cpaths, _T"project_examples/opengl/main.c");
 
-	printf("Hola.\r\n");
+	cparser::cparser::object_s *oo = cp.Parse(NULL);
+
+	printf("Fin.\r\n");
 
 	return 0;
 }
+

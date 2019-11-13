@@ -16,9 +16,17 @@ namespace cparser {
 
 cparser_paths::cparser_paths()
 {
-	m_paths = new uint8_t *[0];
+	m_paths = new const uint8_t *[0];
 	m_paths_size = 0;
 	m_paths_count = 0;
+}
+
+cparser_paths::cparser_paths(const cparser_paths *p)
+{
+	m_paths = new const uint8_t *[p->m_paths_size];
+	m_paths_size = p->m_paths_size;
+	for (m_paths_count = 0; m_paths_count < p->m_paths_count; m_paths_count++)
+		m_paths[m_paths_count] = StrDup(p->m_paths[m_paths_count]);
 }
 
 cparser_paths::~cparser_paths()
@@ -37,7 +45,7 @@ void cparser_paths::AddPath(const uint8_t *path)
 	{
 		// Create new size and paths array
 		uint32_t ss = m_paths_count + ARRAY_GROWTH_SPEED;
-		uint8_t **pp = new uint8_t *[ss];
+		const uint8_t **pp = new const uint8_t *[ss];
 
 		// Copy to new paths array and delete the old one
 		memcpy(pp, m_paths, sizeof(uint8_t *) * m_paths_count);
@@ -52,17 +60,49 @@ void cparser_paths::AddPath(const uint8_t *path)
 	m_paths[m_paths_count++] = _T strdup(_t path);
 }
 
-uint32_t cparser_paths::GetPathsCount()
+uint32_t cparser_paths::GetPathsCount() const
 {
 	return m_paths_count;
 }
 
-const uint8_t * cparser_paths::GetPathByIndex(uint32_t i)
+const uint8_t * cparser_paths::GetPathByIndex(uint32_t i) const
 {
 	if (i >= m_paths_count)
 		return NULL;
 
 	return m_paths[i];
+}
+
+FILE * cparser_paths::OpenFile(const uint8_t *filename, const uint8_t *mode) const
+{
+	char *p;
+	uint32_t lp, lf;
+	FILE *f;
+
+	// Check filename
+	if (!filename)
+		return NULL;
+
+	for (uint32_t i = 0; (f == NULL) && (i < m_paths_count); i++)
+	{
+		// Get path and filename lengths
+		lp = StrLen(m_paths[i]);
+		lf = StrLen(filename);
+
+		// Get full filename path
+		p = new char[lp + 1 + lf + 1];
+		strcpy(p, _t m_paths[i]);
+		strcat(p, _t "/");
+		strcat(p, _t filename);
+
+		// Open file;
+		f = fopen(p, _t mode);
+
+		// Delete filename path
+		delete p;
+	}
+
+	return f;
 }
 
 void cparser_paths::DeletePathByIndex(uint32_t i)
