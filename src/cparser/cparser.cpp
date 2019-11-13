@@ -50,19 +50,24 @@ cparser::~cparser()
 	delete filename;
 }
 
-cparser::object_s *cparser::BeginChild(object_s *parent, cparser::object_type_e type, uint32_t row, uint32_t column)
+cparser::object_s *cparser::AddChild(object_s *parent, cparser::object_type_e type, token_s *token)
 {
 	cparser::object_s *child = new cparser::object_s;
 
 	// Initialize new object
 	child->type = type;
 	child->parent = parent;
-	child->row = row;
-	child->column = column;
 	child->children = NULL;
 	child->children_size = 0;
 	child->children_count = 0;
-	child->data = NULL;
+
+	// Add token data if any
+	if (token)
+	{
+		child->row = token->row;
+		child->column = token->column;
+		child->data = _T StrDup(token->str);
+	}
 
 	// Add object to parent if it is not root node
 	if (parent != NULL)
@@ -70,15 +75,6 @@ cparser::object_s *cparser::BeginChild(object_s *parent, cparser::object_type_e 
 
 	// Return children
 	return child;
-}
-
-cparser::object_s *cparser::EndChild(object_s *c, const uint8_t *data)
-{
-	// Assign string data
-	c->data = StrDup(data);
-
-	// Return to parent object
-	return c->parent;
 }
 
 cparser::object_s *cparser::Parse(object_s *oo)
@@ -105,13 +101,31 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	// Create parsing object in case it doesn't exist
 	if (oo == NULL)
 	{
-		oo = BeginChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, 1, 1);
+		oo = AddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
 	}
 
 	// Process tokens from file
 	while (cparser_tokenizer::NextToken(f, &tt))
 	{
 		printf("R%d, C%d, %d:%s\n", tt.row, tt.column, tt.type, tt.str);
+
+		switch (tt.type)
+		{
+
+		case CPARSER_TOKEN_TYPE_C_COMMENT:
+			oo = AddChild(oo, OBJECT_TYPE_C_COMMENT, &tt);
+			oo = oo->parent;
+			break;
+
+		case CPARSER_TOKEN_TYPE_CPP_COMMENT:
+			oo = AddChild(oo, OBJECT_TYPE_CPP_COMMENT, &tt);
+			oo = oo->parent;
+			break;
+
+		default:
+			break;
+
+		}
 	}
 
 	return oo;

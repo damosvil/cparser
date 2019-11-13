@@ -61,16 +61,14 @@ public:
 	struct object_s
 	{
 		object_type_e type;
-
-		const uint8_t *data;
-		uint32_t row;
-		uint32_t column;
-
 		object_s *parent;
 		object_s **children;
 		uint32_t children_size;
 		uint32_t children_count;
 
+		uint32_t row;
+		uint32_t column;
+		uint8_t * data;
 	};
 
 private:
@@ -86,8 +84,7 @@ private:
 	const cparser_paths *paths;
 	const uint8_t *filename;
 
-	object_s *BeginChild(object_s *parent, object_type_e type, uint32_t row, uint32_t column);
-	object_s *EndChild(object_s *child, const uint8_t *data);
+	object_s *AddChild(object_s *parent, object_type_e type, token_s *token);
 
 public:
 	cparser(const cparser_paths *paths, const uint8_t *filename);

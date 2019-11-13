@@ -10,7 +10,9 @@
 #include <stdio.h>
 #include "cparser/cparsertools.h"
 #include "cparser/cparserpaths.h"
+#include "cparser/cparsertokenizer.h"
 #include "cparser/cparser.h"
+
 
 using namespace cparser;
 

@@ -18,7 +18,7 @@ static const uint8_t * set_lead_identifier_chars = _T "_abcdefghijklmnopqrstuvwx
 static const uint8_t * set_identifier_chars = _T "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 static const uint8_t * set_lead_number_literal_chars = _T "01234567890";
 static const uint8_t * set_number_literal_chars = _T "0123456789xXbB.fFeEuUlL";
-static const uint8_t * set_dual_operator_chars = _T "+-=&|><";
+static const uint8_t * set_dual_operator_chars = _T "+-=&|>";
 static const uint8_t * set_single_operator_chars = _T "*^~!";
 static const uint8_t * set_single_char_token_chars = _T "?:;,.#()[]{}";
 
@@ -190,7 +190,7 @@ bool cparser_tokenizer::NextToken(FILE *f, token_s *tt)
 	}
 	else if (CharInSet(last_char, set_dual_operator_chars))
 	{
-		// >>>>>>>>>>>>>>>>>>>>>>>    =, ==, +, ++, +=, -, --, -=, |, ||, |=, &, &&, &=, >, >=, >>, <, <=, <<
+		// >>>>>>>>>>>>>>>>>>>>>>>    =, ==, +, ++, +=, -, --, -=, |, ||, |=, &, &&, &=, >, >=, >>
 		// Row and column correspond to operator
 		tt->type = CPARSER_TOKEN_TYPE_OPERATOR;
 		tt->row = row;
@@ -323,6 +323,70 @@ bool cparser_tokenizer::NextToken(FILE *f, token_s *tt)
 			// Single operator
 			tt->type = CPARSER_TOKEN_TYPE_OPERATOR;
 			tt->str[1] = 0;
+		}
+
+		return true;
+	}
+	else if (last_char == '<')
+	{
+		// >>>>>>>>>>>>>>>>>>>>>>>    <, <=, <<, include
+		if (StrEq(tt->str, "include"))
+		{
+			// Include filename
+			uint8_t *p = tt->str;
+
+			// Set type
+			tt->type = CPARSER_TOKEN_TYPE_INCLUDE_LITERAL;
+
+			// Add < and first char
+			*p++ = last_char;
+			last_char = NextChar(f, row, column);
+			*p++ = last_char;
+			last_char = NextChar(f, row, column);
+
+			// Add comment chars
+			while (
+					(last_char != EOF) &&
+					(
+						(*(p - 1) != '\n' && *(p - 1) != '>') ||
+						(*(p - 1) == '\n' && *(p - 2) == '\\') ||
+						(*(p - 1) == '\n' && *(p - 2) == '\r' && *(p - 3) == '\\')
+					)
+				)
+			{
+				*p++ = last_char;
+				last_char = NextChar(f, row, column);
+			}
+
+			// End str
+			*p = 0;
+		}
+		else
+		{
+			// <, <=, <<
+			// Row and column correspond to operator
+			tt->type = CPARSER_TOKEN_TYPE_OPERATOR;
+			tt->row = row;
+			tt->column = column;
+			tt->str[0] = last_char;
+
+			// Prepare next char
+			last_char = NextChar(f, row, column);
+
+			if ((last_char == tt->str[0]) || (last_char == '='))
+			{
+				// Dual operator
+				tt->str[1] = last_char;
+				tt->str[2] = 0;
+
+				// Prepare next char
+				last_char = NextChar(f, row, column);
+			}
+			else
+			{
+				// Single operator
+				tt->str[1] = 0;
+			}
 		}
 
 		return true;
