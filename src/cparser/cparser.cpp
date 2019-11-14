@@ -176,7 +176,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE;
 					s = STATE_INCLUDE;
 				}
-				else if (StrEq(tt.str, "define"))
+				else if (StrStr(tt.str, "define") == tt.str)
 				{
 					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE;
 					s = STATE_DEFINE;
@@ -195,6 +195,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 			}
 			else if (s == STATE_INCLUDE)
 			{
+				// Add include
 				oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
 			}
 		}

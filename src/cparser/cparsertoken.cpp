@@ -12,6 +12,10 @@
 
 namespace cparser {
 
+
+typedef bool (*acceptance_filter_callback_t)(uint16_t last_char, uint32_t length, uint8_t *end);
+
+
 //static const uint8_t * set_valid_chars = _T "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 \t\r\n+-*/=\\\"'^&|~!?:;,.><#()[]{}";
 static const uint8_t * set_empty_chars = _T " \t\r\n";
 static const uint8_t * set_lead_identifier_chars = _T "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -48,7 +52,57 @@ static int16_t NextChar(FILE *f, uint32_t &row, uint32_t &column)
 	return res;
 }
 
-static bool ParseDigestString(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, char *str)
+static bool ParseIncludeAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	(last_char != EOF) && (
+			(length > 0 && *(end - 1) != '\n' && *(end - 1) != '>') ||
+			(length > 1 && *(end - 1) == '\n' && *(end - 2) == '\\') ||
+			(length > 2 && *(end - 1) == '\n' && *(end - 2) == '\r' && *(end - 3) == '\\')
+			);
+}
+
+static bool ParseIdentifierAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	CharInSet(last_char, set_identifier_chars);
+}
+
+static bool ParseNumberLiteralAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	CharInSet(last_char, set_number_literal_chars);
+}
+
+static bool ParseStringLiteralAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	(last_char != EOF) && (
+			(length > 1 && *(end - 1) != '\"') ||
+			(length > 2 && *(end - 1) == '\"' && *(end - 2) == '\\')
+			);
+}
+
+static bool ParseCharLiteralAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	(last_char != EOF) && (
+			(length > 1 && *(end - 1) != '\'') ||
+			(length > 2 && *(end - 1) == '\'' && *(end - 2) == '\\')
+			);
+}
+
+static bool ParseCCommentAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	(last_char != EOF) && !(length > 2 && *(end - 1) == '/' && *(end - 2) == '*');
+}
+
+static bool ParseCppCommentAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return 	(last_char != EOF) &&
+			(
+				(length > 0 && *(end - 1) != '\n') ||
+				(length > 1 && *(end - 1) == '\n' && *(end - 2) == '\\') ||
+				(length > 2 && *(end - 1) == '\n' && *(end - 2) == '\r' && *(end - 3) == '\\')
+			);
+}
+
+static void ParseDigestString(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, uint8_t *str, acceptance_filter_callback_t filter)
 {
 	uint8_t *p = str;
 
@@ -57,11 +111,7 @@ static bool ParseDigestString(FILE *f, uint32_t &row, uint32_t &column, int16_t 
 	last_char = NextChar(f, row, column);
 
 	// Copy identifier into str
-	while ((last_char != EOF) && (
-			*(p - 1) != '\n' ||
-			(*(p - 1) == '\n' && *(p - 2) == '\\') ||
-			(*(p - 1) == '\n' && *(p - 2) == '\r' && *(p - 3) == '\\')
-			))
+	while ((last_char != EOF) && filter(last_char, p - str, p))
 	{
 		*p++ = last_char;
 		last_char = NextChar(f, row, column);
@@ -71,7 +121,7 @@ static bool ParseDigestString(FILE *f, uint32_t &row, uint32_t &column, int16_t 
 	*p = 0;
 }
 
-static bool ParseDefineLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseDefineLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    DEFINE
 	uint8_t *p = tt->str;
@@ -98,43 +148,20 @@ static bool ParseDefineLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t
 
 	// End str
 	*p = 0;
-	return true;
 }
 
-static bool ParseIncludeLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseIncludeLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
-	// Include filename
-	uint8_t *p = tt->str;
-
-	// Set type
+	// Include file name literal
 	tt->type = CPARSER_TOKEN_TYPE_INCLUDE_LITERAL;
+	tt->row = row;
+	tt->column = column;
 
-	// Add < and first char
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-
-	// Add comment chars
-	while (
-			(last_char != EOF) &&
-			(
-				(*(p - 1) != '\n' && *(p - 1) != '>') ||
-				(*(p - 1) == '\n' && *(p - 2) == '\\') ||
-				(*(p - 1) == '\n' && *(p - 2) == '\r' && *(p - 3) == '\\')
-			)
-		)
-	{
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-	}
-
-	// End str
-	*p = 0;
-	return true;
+	// Digest include literal with include acceptance filter
+	ParseDigestString(f, row, column, last_char, tt->str, ParseIncludeAcceptanceFilter);
 }
 
-static bool ParseSingleCharToken(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseSingleCharToken(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Single char token
 	tt->type = CPARSER_TOKEN_TYPE_SINGLE_CHAR;
@@ -145,123 +172,53 @@ static bool ParseSingleCharToken(FILE *f, uint32_t &row, uint32_t &column, int16
 
 	// Prepare next char
 	last_char = NextChar(f, row, column);
-
-	return true;
 }
 
-static bool ParseIdentifier(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseIdentifier(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Identifier
-	uint8_t *p = tt->str;
-
-	// Row and column correspond to identifier
 	tt->type = CPARSER_TOKEN_TYPE_IDENTIFIER;
 	tt->row = row;
 	tt->column = column;
 
-	// Copy first char to str
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-
-	// Copy identifier into str
-	while (CharInSet(last_char, set_identifier_chars))
-	{
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-	}
-
-	// End str
-	*p = 0;
-
-	return true;
+	// Digest include literal with include acceptance filter
+	ParseDigestString(f, row, column, last_char, tt->str, ParseIdentifierAcceptanceFilter);
 }
 
-static bool ParseNumberLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseNumberLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    Number literal
-	uint8_t *p = tt->str;
-
-	// Row and column correspond to literal
 	tt->type = CPARSER_TOKEN_TYPE_NUMBER_LITERAL;
 	tt->row = row;
 	tt->column = column;
 
-	// Copy first char to str
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-
-	// Copy string literal
-	while (CharInSet(last_char, set_number_literal_chars))
-	{
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-	}
-
-	// End string
-	*p = 0;
-
-	return true;
+	// Digest include literal with include acceptance filter
+	ParseDigestString(f, row, column, last_char, tt->str, ParseNumberLiteralAcceptanceFilter);
 }
 
-static bool ParseStringLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseStringLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>    String literal
-	uint8_t *p = tt->str;
-
-	// Row and column correspond to literal
 	tt->type = CPARSER_TOKEN_TYPE_STRING_LITERAL;
 	tt->row = row;
 	tt->column = column;
 
-	// Copy first 2 chars to str
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-
-	// Copy string literal
-	while ((last_char != EOF) && ((*(p - 1) != '\"') || (*(p - 1) == '\"' && *(p - 2) == '\\')))
-	{
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-	}
-
-	// End string
-	*p = 0;
-
-	return true;
+	// Digest include literal with include acceptance filter
+	ParseDigestString(f, row, column, last_char, tt->str, ParseStringLiteralAcceptanceFilter);
 }
 
-static bool ParseCharLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseCharLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    Char literal
-	uint8_t *p = tt->str;
-
-	// Row and column correspond to literal
 	tt->type = CPARSER_TOKEN_TYPE_CHAR_LITERAL;
 	tt->row = row;
 	tt->column = column;
 
-	// Copy first char to str
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-	*p++ = last_char;
-	last_char = NextChar(f, row, column);
-
-	// Copy string literal
-	while ((last_char != EOF) && ((*(p - 1) != '\'') || (*(p - 1) == '\'' && *(p - 2) == '\\')))
-	{
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-	}
-
-	// End string
-	*p = 0;
-
-	return true;
+	// Digest include literal with include acceptance filter
+	ParseDigestString(f, row, column, last_char, tt->str, ParseCharLiteralAcceptanceFilter);
 }
 
-static bool ParseDualOperator(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseDualOperator(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    =, ==, +, ++, +=, -, --, -=, |, ||, |=, &, &&, &=, >, >=, >>
 	// Row and column correspond to operator
@@ -287,11 +244,9 @@ static bool ParseDualOperator(FILE *f, uint32_t &row, uint32_t &column, int16_t 
 		// Single operator
 		tt->str[1] = 0;
 	}
-
-	return true;
 }
 
-static bool ParseSingleOperator(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseSingleOperator(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    *, *=, ^, ^=
 	// Row and column correspond to symbol
@@ -317,11 +272,9 @@ static bool ParseSingleOperator(FILE *f, uint32_t &row, uint32_t &column, int16_
 		// Single operator
 		tt->str[1] = 0;
 	}
-
-	return true;
 }
 
-static bool ParseSlash(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseSlash(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>    /, /=, /*, //
 	// Row and column correspond to symbol
@@ -345,53 +298,18 @@ static bool ParseSlash(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_c
 	else if (last_char == '*')
 	{
 		// C comment
-		uint8_t *p = tt->str + 1;
-
-		// Set type
 		tt->type = CPARSER_TOKEN_TYPE_C_COMMENT;
 
-		// Add *
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-
-		// Add comment chars
-		while (last_char != EOF && !(*(p - 1) == '/' && *(p - 2) == '*'))
-		{
-			*p++ = last_char;
-			last_char = NextChar(f, row, column);
-		}
-
-		// End str
-		*p = 0;
+		// Append comment string to str
+		ParseDigestString(f, row, column, last_char, tt->str + 1, ParseCCommentAcceptanceFilter);
 	}
 	else if (last_char == '/')
 	{
-		// C++ comment
-		uint8_t *p = tt->str + 1;
-
 		// Set type
 		tt->type = CPARSER_TOKEN_TYPE_CPP_COMMENT;
 
-		// Add /
-		*p++ = last_char;
-		last_char = NextChar(f, row, column);
-
-		// Add comment chars
-		while (
-				(last_char != EOF) &&
-				(
-					(*(p - 1) != '\n') ||
-					(*(p - 1) == '\n' && *(p - 2) == '\\') ||
-					(*(p - 1) == '\n' && *(p - 2) == '\r' && *(p - 3) == '\\')
-				)
-			)
-		{
-			*p++ = last_char;
-			last_char = NextChar(f, row, column);
-		}
-
-		// End str
-		*p = 0;
+		// Append comment string to str
+		ParseDigestString(f, row, column, last_char, tt->str + 1, ParseCppCommentAcceptanceFilter);
 	}
 	else
 	{
@@ -399,11 +317,9 @@ static bool ParseSlash(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_c
 		tt->type = CPARSER_TOKEN_TYPE_OPERATOR;
 		tt->str[1] = 0;
 	}
-
-	return true;
 }
 
-static bool ParseInvalidCharacter(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
+static void ParseInvalidCharacter(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Invalid character
 	tt->type = CPARSER_TOKEN_TYPE_INVALID;
@@ -411,14 +327,13 @@ static bool ParseInvalidCharacter(FILE *f, uint32_t &row, uint32_t &column, int1
 	tt->column = column;
 	tt->str[0] = last_char;
 	tt->str[1] = 0;
-
-	return false;
 }
 
 bool TokenNext(FILE *f, token_s *tt, uint32_t flags)
 {
 	static uint32_t row = 1, column = 0;
 	static int16_t last_char = 0;
+	bool res = true;
 
 	// In the beginning read next char
 	if (row == 1 && column == 0)
@@ -433,50 +348,64 @@ bool TokenNext(FILE *f, token_s *tt, uint32_t flags)
 	}
 
 	// Token discovery
-	if (flags | CPARSER_TOKEN_FLAG_PARSE_DEFINE)
+	if (flags & CPARSER_TOKEN_FLAG_PARSE_DEFINE)
 	{
-		return ParseDefineLiteral(f, row, column, last_char, tt);
+		// Define literal
+		ParseDefineLiteral(f, row, column, last_char, tt);
 	}
-	else if (flags | CPARSER_TOKEN_FLAG_PARSE_INCLUDE)
+	else if (flags & CPARSER_TOKEN_FLAG_PARSE_INCLUDE)
 	{
-		return ParseIncludeLiteral(f, row, column, last_char, tt);
+		// Include file name literal
+		ParseIncludeLiteral(f, row, column, last_char, tt);
 	}
 	else if (CharInSet(last_char, set_single_char_token_chars))
 	{
-		return ParseSingleCharToken(f, row, column, last_char, tt);
+		// Single char token
+		ParseSingleCharToken(f, row, column, last_char, tt);
 	}
 	else if (CharInSet(last_char, set_lead_identifier_chars))
 	{
-		return ParseIdentifier(f, row, column, last_char, tt);
+		// Identifier token
+		ParseIdentifier(f, row, column, last_char, tt);
 	}
 	else if (CharInSet(last_char, set_lead_number_literal_chars))
 	{
-		return ParseNumberLiteral(f, row, column, last_char, tt);
+		// Number literal token
+		ParseNumberLiteral(f, row, column, last_char, tt);
 	}
 	else if (last_char == '\"')
 	{
-		return ParseStringLiteral(f, row, column, last_char, tt);
+		// String literal token
+		ParseStringLiteral(f, row, column, last_char, tt);
 	}
 	else if (last_char == '\'')
 	{
-		return ParseCharLiteral(f, row, column, last_char, tt);
+		// Character literal token
+		ParseCharLiteral(f, row, column, last_char, tt);
 	}
 	else if (CharInSet(last_char, set_dual_operator_chars))
 	{
-		return ParseDualOperator(f, row, column, last_char, tt);
+		// Dual operator token
+		ParseDualOperator(f, row, column, last_char, tt);
 	}
 	else if (CharInSet(last_char, set_single_operator_chars))
 	{
-		return ParseSingleOperator(f, row, column, last_char, tt);
+		// Single operator token
+		ParseSingleOperator(f, row, column, last_char, tt);
 	}
 	else if (last_char == '/')
 	{
-		return ParseSlash(f, row, column, last_char, tt);
+		// Slash token
+		ParseSlash(f, row, column, last_char, tt);
 	}
 	else
 	{
-		return ParseInvalidCharacter(f, row, column, last_char, tt);
+		// Invalid character
+		ParseInvalidCharacter(f, row, column, last_char, tt);
+		res = false;
 	}
+
+	return res;
 }
 
 } /* namespace cparser */
