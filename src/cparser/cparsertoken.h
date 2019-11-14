@@ -1,17 +1,18 @@
 /*
- * cparsertokenizer.h
+ * cparsertoken.h
  *
  *  Created on: 12/11/2019
  *      Author: blue
  */
 
-#ifndef CPARSERTOKENIZER_H_
-#define CPARSERTOKENIZER_H_
+#ifndef CPARSERTOKEN_H_
+#define CPARSERTOKEN_H_
 
 namespace cparser {
 
 #define CPARSER_TOKEN_FLAG_PARSE_INCLUDE		1
 #define CPARSER_TOKEN_FLAG_PARSE_DEFINE			2
+#define CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR	4
 
 // Token type
 enum token_type_e
@@ -38,17 +39,8 @@ struct token_s
 	uint8_t str[MAX_SENTENCE_LENGTH + 1];
 };
 
-class cparser_tokenizer {
-
-private:
-	static bool CharInSet(uint8_t c, const uint8_t *set);
-	static int16_t NextChar(FILE *f, uint32_t &row, uint32_t &column);
-
-public:
-	static bool NextToken(FILE *f, token_s *tt, uint32_t flags);
-
-};
+bool TokenNext(FILE *f, token_s *tt, uint32_t flags);
 
 } /* namespace cparser */
 
-#endif /* CPARSERTOKENIZER_H_ */
+#endif /* CPARSERTOKEN_H_ */

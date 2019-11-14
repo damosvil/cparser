@@ -10,7 +10,7 @@
 #include <string.h>
 #include "cparserpaths.h"
 #include "cparsertools.h"
-#include "cparsertokenizer.h"
+#include "cparsertoken.h"
 #include "cparser.h"
 
 static const char *keywords[] = {
@@ -119,7 +119,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	// Process tokens from file
 	states_e s = STATE_IDLE;
 	uint32_t flags = 0;
-	while (cparser_tokenizer::NextToken(f, &tt, flags))
+	while (TokenNext(f, &tt, flags))
 	{
 		// Reset flags after read
 		flags = 0;
@@ -155,7 +155,14 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				if (tt.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR)
 				{
 					if (tt.str[0] == '#')
+					{
+						flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR;
 						s = STATE_PREPROCESSOR;
+					}
+					else
+					{
+						throw "TODO";
+					}
 				}
 				else
 				{

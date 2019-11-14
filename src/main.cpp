@@ -8,16 +8,21 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include "cparser/cparsertools.h"
-#include "cparser/cparserpaths.h"
-#include "cparser/cparsertokenizer.h"
-#include "cparser/cparser.h"
+#include <cparsertools.h>
+#include <cparsertoken.h>
+#include <cparserpaths.h>
+#include <cparser.h>
+
+#include <stdint.h>
+#define MAX(A,B)	((A > B) ? A : B)
 
 using namespace cparser;
 
 
 int main()
 {
+	uint32_t k = MAX(0, 1);
+
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");
 	cpaths->AddPath(_T "./src/");
