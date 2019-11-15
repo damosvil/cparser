@@ -44,7 +44,8 @@ static int16_t NextChar(FILE *f, uint32_t &row, uint32_t &column)
 	{
 		row++;
 		column = 1;
-	} else if (res != EOF)
+	}
+	else if (res != EOF)
 	{
 		column++;
 	}
@@ -135,8 +136,17 @@ static void ParseDefineLiteral(FILE *f, uint32_t &row, uint32_t &column, int16_t
 	tt->row = row;
 	tt->column = column;
 
-	// Digest define literal with Cpp comment filter (they behave exactly the same)
-	ParseDigestString(f, row, column, last_char, tt->str, ParseCppCommentAcceptanceFilter);
+	// Check if current char for define literal is different
+	if (last_char != '\r' && last_char != '\n')
+	{
+		// Digest define literal with Cpp comment filter (they behave exactly the same)
+		ParseDigestString(f, row, column, last_char, tt->str, ParseCppCommentAcceptanceFilter);
+	}
+	else
+	{
+		// No literal so assign empty string
+		tt->str[0] = 0;
+	}
 }
 
 static void ParseIncludeFilename(FILE *f, uint32_t &row, uint32_t &column, int16_t &last_char, token_s *tt)
@@ -330,10 +340,22 @@ bool TokenNext(FILE *f, token_s *tt, uint32_t flags)
 		last_char = NextChar(f, row, column);
 	}
 
-	// Skip empty chars
-	while (CharInSet(last_char, set_empty_chars))
+	// Skip empty chars if define literal (they can be empty)
+	if (flags & CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL)
 	{
-		last_char = NextChar(f, row, column);
+		// Skip spaces and tabs
+		while (last_char == ' ' || last_char == '\t')
+		{
+			last_char = NextChar(f, row, column);
+		}
+	}
+	else
+	{
+		// Skip spaces, tabs, new lines and returns
+		while (CharInSet(last_char, set_empty_chars))
+		{
+			last_char = NextChar(f, row, column);
+		}
 	}
 
 	// Token discovery

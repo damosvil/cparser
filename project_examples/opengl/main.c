@@ -1,3 +1,4 @@
+//
 /* A simple program to show how to set up an X window for OpenGL rendering.
  * X86 compilation: gcc -o -L/usr/X11/lib   main main.c -lGL -lX11
  * X64 compilation: gcc -o -L/usr/X11/lib64 main main.c -lGL -lX11
@@ -13,6 +14,7 @@
 
 #define ONE					1
 #define MAX(A, B)			((A > B) ? A : B)
+#define DO_SOMETHING
 
 static int dblBuf[]  = {GLX_RGBA, GLX_DEPTH_SIZE, 16, GLX_DOUBLEBUFFER, None};
 
