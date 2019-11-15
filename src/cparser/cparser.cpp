@@ -11,6 +11,7 @@
 #include "cparserpaths.h"
 #include "cparsertools.h"
 #include "cparsertoken.h"
+#include "cparserobject.h"
 #include "cparser.h"
 
 //static const char *keywords[] = {
@@ -24,16 +25,6 @@
 //	"unsigned", "void", "volatile", "while",
 //	NULL
 //};
-
-enum states_e
-{
-	STATE_IDLE,
-	STATE_PREPROCESSOR,
-	STATE_INCLUDE,
-	STATE_DEFINE,
-	STATE_DEFINE_IDENTIFIER,
-	STATE_PRAGMA,
-};
 
 namespace cparser {
 
@@ -59,35 +50,59 @@ cparser::~cparser()
 	delete filename;
 }
 
-cparser::object_s *cparser::AddChild(object_s *parent, cparser::object_type_e type, token_s *token)
+object_s * cparser::AddTokenToDataType(states_e &s, object_s *oo, token_s *tt)
 {
-	cparser::object_s *child = new cparser::object_s;
-
-	// Initialize new object
-	child->type = type;
-	child->parent = parent;
-	child->children = NULL;
-	child->children_size = 0;
-	child->children_count = 0;
-	child->info = NULL;
-
-	// Add token data if any
-	if (token)
+	if (StrEq(tt->str, "static") || StrEq(tt->str, "extern") || StrEq(tt->str, "auto") ||
+			StrEq(tt->str, "register") || StrEq(tt->str, "typedef"))
 	{
-		child->row = token->row;
-		child->column = token->column;
-		child->data = _T StrDup(token->str);
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, tt);
+		oo = oo->parent;
 	}
+	else if (StrEq(tt->str, "const") && StrEq(tt->str, "volatile"))
+	{
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_QUALIFIER, tt);
+		oo = oo->parent;
+	}
+	else if (StrEq(tt->str, "signed") && StrEq(tt->str, "unsigned") && StrEq(tt->str, "short") && StrEq(tt->str, "long"))
+	{
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, tt);
+		oo = oo->parent;
+	}
+	else if (StrEq(tt->str, "char") && StrEq(tt->str, "int") && StrEq(tt->str, "float") && StrEq(tt->str, "double"))
+	{
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, tt);
+		oo = oo->parent;
+	}
+	else if (StrEq(tt->str, "typedef") && StrEq(tt->str, "union") && StrEq(tt->str, "enum") &&
+			StrEq(tt->str, "struct"))
+	{
+		// Possible datatype definition, variable definition, function definition
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_UNKNOWN, tt);
+		oo = oo->parent;
+	}
+	else
+	{
+		// First word -> assume defined datatype
+		s = STATE_UNCLASIFIED_IDENTIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_DEFINED, tt);
+	}
+	oo = oo->parent;
 
-	// Add object to parent if it is not root node
-	if (parent != NULL)
-		AddToPtrArray(child, (void **&)parent->children, parent->children_size, parent->children_count);
-
-	// Return children
-	return child;
+	return oo;
 }
 
-cparser::object_s *cparser::Parse(object_s *oo)
+object_s *cparser::Parse(object_s *oo)
 {
 	FILE *f;
 	token_s tt = { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } };
@@ -111,7 +126,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	// Create root parse object
 	if (oo == NULL)
 	{
-		oo = AddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
+		oo = ObjectAddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
 		oo->row = 0;
 		oo->column = 0;
 		oo->data = _T StrDup(filename);
@@ -130,11 +145,11 @@ cparser::object_s *cparser::Parse(object_s *oo)
 
 		// Process tokens
 		if (tt.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
-			oo = AddChild(oo, OBJECT_TYPE_C_COMMENT, &tt);
+			oo = ObjectAddChild(oo, OBJECT_TYPE_C_COMMENT, &tt);
 			oo = oo->parent;
 		}
 		else if (tt.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) {
-			oo = AddChild(oo, OBJECT_TYPE_CPP_COMMENT, &tt);
+			oo = ObjectAddChild(oo, OBJECT_TYPE_CPP_COMMENT, &tt);
 			oo = oo->parent;
 		}
 		else
@@ -147,12 +162,16 @@ cparser::object_s *cparser::Parse(object_s *oo)
 					if (tt.str[0] == '#')
 					{
 						s = STATE_PREPROCESSOR;
-						oo = AddChild(oo, OBJECT_TYPE_PREPROCESSOR_DIRECTIVE, &tt);
+						oo = ObjectAddChild(oo, OBJECT_TYPE_PREPROCESSOR_DIRECTIVE, &tt);
 					}
 					else
 					{
 						throw "TODO";
 					}
+				}
+				else if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
+				{
+					oo = AddTokenToDataType(s, oo, &tt);
 				}
 				else
 				{
@@ -164,13 +183,13 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				if (StrEq(tt.str, "include"))
 				{
 					s = STATE_INCLUDE;
-					oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+					oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
 					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 				}
 				else if (StrStr(tt.str, "define") == tt.str)
 				{
 					s = STATE_DEFINE;
-					oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+					oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
 					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 				}
 				else if (StrEq(tt.str, "pragma"))
@@ -180,7 +199,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				else
 				{
 					// Unexpected token
-					oo = AddChild(oo, OBJECT_TYPE_ERROR, &tt);
+					oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
 					oo = oo->parent;
 					s = STATE_IDLE;
 				}
@@ -190,7 +209,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				s = STATE_IDLE;
 
 				// Add include filename
-				oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+				oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
 				oo = oo->parent;	// Return from include filename
 				oo = oo->parent;	// Return from include word
 				oo = oo->parent; 	// Return from preprocessor directive
@@ -200,7 +219,7 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				s = STATE_DEFINE_IDENTIFIER;
 
 				// Add define literal
-				oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
 				flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
 			}
 			else if (s == STATE_DEFINE_IDENTIFIER)
@@ -208,11 +227,14 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				s = STATE_IDLE;
 
 				// Add define literal
-				oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
 				oo = oo->parent;	// Return from define identifier
 				oo = oo->parent;	// Return from define
 				oo = oo->parent;	// Return from define literal
 				oo = oo->parent; 	// Return from preprocessor directive
+			}
+			else if (s == STATE_UNCLASIFIED_IDENTIFIER)
+			{
 			}
 			else
 			{

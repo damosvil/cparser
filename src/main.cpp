@@ -9,19 +9,18 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <cparsertools.h>
-#include <cparsertoken.h>
 #include <cparserpaths.h>
+#include <cparsertoken.h>
+#include <cparserobject.h>
 #include <cparser.h>
 
-#include <stdint.h>
-#define MAX(A,B)	((A > B) ? A : B)
 
 using namespace cparser;
 
 
 int main()
 {
-	uint32_t k = MAX(0, 1);
+	static const long *i = 0;
 
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");
@@ -30,7 +29,7 @@ int main()
 
 	cparser::cparser cp(cpaths, _T"project_examples/opengl/main.c");
 
-	cparser::cparser::object_s *oo = cp.Parse(NULL);
+	object_s *oo = cp.Parse(NULL);
 
 	printf("Fin.\r\n");
 
