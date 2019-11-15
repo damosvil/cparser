@@ -55,48 +55,41 @@ object_s * cparser::AddTokenToDataType(states_e &s, object_s *oo, token_s *tt)
 	if (StrEq(tt->str, "static") || StrEq(tt->str, "extern") || StrEq(tt->str, "auto") ||
 			StrEq(tt->str, "register") || StrEq(tt->str, "typedef"))
 	{
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
-		oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, tt);
-		oo = oo->parent;
+		if (ObjectGetChildByType(oo, OBJECT_TYPE_SPECIFIER) == NULL)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, tt);
+		}
+		else
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Type specifier already defined");
+			s = STATE_IDLE;
+		}
 	}
 	else if (StrEq(tt->str, "const") && StrEq(tt->str, "volatile"))
 	{
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_QUALIFIER, tt);
-		oo = oo->parent;
 	}
 	else if (StrEq(tt->str, "signed") && StrEq(tt->str, "unsigned") && StrEq(tt->str, "short") && StrEq(tt->str, "long"))
 	{
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, tt);
-		oo = oo->parent;
 	}
 	else if (StrEq(tt->str, "char") && StrEq(tt->str, "int") && StrEq(tt->str, "float") && StrEq(tt->str, "double"))
 	{
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, tt);
-		oo = oo->parent;
 	}
 	else if (StrEq(tt->str, "typedef") && StrEq(tt->str, "union") && StrEq(tt->str, "enum") &&
 			StrEq(tt->str, "struct"))
 	{
 		// Possible datatype definition, variable definition, function definition
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_UNKNOWN, tt);
-		oo = oo->parent;
 	}
 	else
 	{
 		// First word -> assume defined datatype
-		s = STATE_UNCLASIFIED_IDENTIFIER;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_DEFINED, tt);
 	}
+
 	oo = oo->parent;
 
 	return oo;
@@ -171,6 +164,9 @@ object_s *cparser::Parse(object_s *oo)
 				}
 				else if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 				{
+					s = STATE_UNCLASIFIED_IDENTIFIER;
+					oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+
 					oo = AddTokenToDataType(s, oo, &tt);
 				}
 				else

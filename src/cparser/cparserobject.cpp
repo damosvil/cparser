@@ -15,7 +15,6 @@
 
 namespace cparser {
 
-
 object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token)
 {
 	object_s *child = new object_s;
@@ -42,6 +41,15 @@ object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token)
 
 	// Return children
 	return child;
+}
+
+object_s *ObjectGetChildByType(object_s *parent, object_type_e type)
+{
+	for (uint32_t i = 0; i < parent->children_count; i++)
+		if (parent->children[i]->type == type)
+			return parent->children[i];
+
+	return NULL;
 }
 
 
