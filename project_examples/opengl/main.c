@@ -11,6 +11,9 @@
 #include <X11/X.h>    /* X11 constant (e.g. TrueColor) */
 #include <X11/keysym.h>
 
+#define ONE					1
+#define MAX(A, B)			((A > B) ? A : B)
+
 static int dblBuf[]  = {GLX_RGBA, GLX_DEPTH_SIZE, 16, GLX_DOUBLEBUFFER, None};
 
 Display   *p_display;

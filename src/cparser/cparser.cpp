@@ -13,17 +13,17 @@
 #include "cparsertoken.h"
 #include "cparser.h"
 
-static const char *keywords[] = {
-	"auto", "break", "case", "char",
-	"const", "continue", "default", "do",
-	"double", "else", "enum", "extern",
-	"float", "for", "goto", "if",
-	"int", "long", "register", "return",
-	"short", "signed", "sizeof", "static",
-	"struct", "switch", "typedef", "union",
-	"unsigned", "void", "volatile", "while",
-	NULL
-};
+//static const char *keywords[] = {
+//	"auto", "break", "case", "char",
+//	"const", "continue", "default", "do",
+//	"double", "else", "enum", "extern",
+//	"float", "for", "goto", "if",
+//	"int", "long", "register", "return",
+//	"short", "signed", "sizeof", "static",
+//	"struct", "switch", "typedef", "union",
+//	"unsigned", "void", "volatile", "while",
+//	NULL
+//};
 
 enum states_e
 {
@@ -31,6 +31,7 @@ enum states_e
 	STATE_PREPROCESSOR,
 	STATE_INCLUDE,
 	STATE_DEFINE,
+	STATE_DEFINE_IDENTIFIER,
 	STATE_PRAGMA,
 };
 
@@ -123,8 +124,11 @@ cparser::object_s *cparser::Parse(object_s *oo)
 	{
 		// Reset flags after read
 		flags = 0;
+
+		// Gently printing
 		printf("R%d, C%d, %d:%s\n", tt.row, tt.column, tt.type, tt.str);
 
+		// Process tokens
 		if (tt.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
 			oo = AddChild(oo, OBJECT_TYPE_C_COMMENT, &tt);
 			oo = oo->parent;
@@ -135,20 +139,6 @@ cparser::object_s *cparser::Parse(object_s *oo)
 		}
 		else
 		{
-			// Close previous tokens
-			if (s == STATE_INCLUDE && oo->type == OBJECT_TYPE_INCLUDE)
-			{
-				if (tt.row == oo->row)
-				{
-					oo = AddChild(oo, OBJECT_TYPE_WARNING, &tt);
-					oo->info = _T StrDup("Extra token at the end of include directive");
-					oo = oo->parent;
-				}
-
-				oo = oo->parent;
-				s = STATE_IDLE;
-			}
-
 			// Check new tokens
 			if (s == STATE_IDLE)
 			{
@@ -156,8 +146,8 @@ cparser::object_s *cparser::Parse(object_s *oo)
 				{
 					if (tt.str[0] == '#')
 					{
-						flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR;
 						s = STATE_PREPROCESSOR;
+						oo = AddChild(oo, OBJECT_TYPE_PREPROCESSOR_DIRECTIVE, &tt);
 					}
 					else
 					{
@@ -173,13 +163,15 @@ cparser::object_s *cparser::Parse(object_s *oo)
 			{
 				if (StrEq(tt.str, "include"))
 				{
-					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE;
 					s = STATE_INCLUDE;
+					oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 				}
 				else if (StrStr(tt.str, "define") == tt.str)
 				{
-					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE;
 					s = STATE_DEFINE;
+					oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 				}
 				else if (StrEq(tt.str, "pragma"))
 				{
@@ -195,8 +187,36 @@ cparser::object_s *cparser::Parse(object_s *oo)
 			}
 			else if (s == STATE_INCLUDE)
 			{
-				// Add include
+				s = STATE_IDLE;
+
+				// Add include filename
 				oo = AddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+				oo = oo->parent;	// Return from include filename
+				oo = oo->parent;	// Return from include word
+				oo = oo->parent; 	// Return from preprocessor directive
+			}
+			else if (s == STATE_DEFINE)
+			{
+				s = STATE_DEFINE_IDENTIFIER;
+
+				// Add define literal
+				oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+				flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+			}
+			else if (s == STATE_DEFINE_IDENTIFIER)
+			{
+				s = STATE_IDLE;
+
+				// Add define literal
+				oo = AddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+				oo = oo->parent;	// Return from define identifier
+				oo = oo->parent;	// Return from define
+				oo = oo->parent;	// Return from define literal
+				oo = oo->parent; 	// Return from preprocessor directive
+			}
+			else
+			{
+				throw "TODO";
 			}
 		}
 
