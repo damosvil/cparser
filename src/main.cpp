@@ -17,11 +17,8 @@
 
 using namespace cparser;
 
-
 int main()
 {
-	static const long *i = 0;
-
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");
 	cpaths->AddPath(_T "./src/");

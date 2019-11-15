@@ -26,6 +26,42 @@
 //	NULL
 //};
 
+
+enum eflags_e
+{
+	EFLAGS_NONE 				    = 0,
+	EFLAGS_SPECIFIER 			    = 1 << 1,
+	EFLAGS_QUALIFIER 			    = 1 << 2,
+	EFLAGS_MODIFIER_SIGNED 		    = 1 << 3,
+	EFLAGS_MODIFIER_UNSIGNED 	    = 1 << 4,
+	EFLAGS_MODIFIER_SHORT 		    = 1 << 5,
+	EFLAGS_MODIFIER_LONG 		    = 1 << 6,
+	EFLAGS_MODIFIER_LONG_LONG 	    = 1 << 7,
+	EFLAGS_VOID 				    = 1 << 8,
+	EFLAGS_CHAR 				    = 1 << 9,
+	EFLAGS_INT 					    = 1 << 10,
+	EFLAGS_FLOAT 				    = 1 << 11,
+	EFLAGS_DOUBLE 				    = 1 << 12,
+	EFLAGS_USER_DEFINED_DATATYPE	= 1 << 13,
+};
+
+
+#define DATATYPE_DEFINED_FLAGS  	(\
+									EFLAGS_MODIFIER_SIGNED 		       |\
+									EFLAGS_MODIFIER_UNSIGNED 	       |\
+									EFLAGS_MODIFIER_SHORT 		       |\
+									EFLAGS_MODIFIER_LONG 		       |\
+									EFLAGS_MODIFIER_LONG_LONG 	       |\
+									EFLAGS_VOID 				       |\
+									EFLAGS_CHAR 				       |\
+									EFLAGS_INT 					       |\
+									EFLAGS_FLOAT 				       |\
+									EFLAGS_DOUBLE 				       |\
+									EFLAGS_USER_DEFINED_DATATYPE		\
+									)
+
+
+
 namespace cparser {
 
 cparser::cparser(const cparser_paths *paths, const uint8_t *filename)
@@ -50,43 +86,219 @@ cparser::~cparser()
 	delete filename;
 }
 
-object_s * cparser::AddTokenToDataType(states_e &s, object_s *oo, token_s *tt)
+object_s * cparser::AddTokenToDatatype(object_s *oo, states_e &s, token_s *tt)
 {
+	static uint32_t eflags = EFLAGS_NONE;
+
+	// Initialize acceptance flags
+	if (oo->children_count == 0)
+	{
+		eflags = EFLAGS_NONE;
+	}
+
+	// Compose datatype
 	if (StrEq(tt->str, "static") || StrEq(tt->str, "extern") || StrEq(tt->str, "auto") ||
 			StrEq(tt->str, "register") || StrEq(tt->str, "typedef"))
 	{
-		if (ObjectGetChildByType(oo, OBJECT_TYPE_SPECIFIER) == NULL)
+		// Check specifiers
+		if (eflags & EFLAGS_SPECIFIER)
 		{
-			oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, tt);
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Specifier already defined");
+			s = STATE_IDLE;
 		}
 		else
 		{
-			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
-			oo->info = _T StrDup("Type specifier already defined");
-			s = STATE_IDLE;
+			eflags |= EFLAGS_SPECIFIER;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, tt);
 		}
 	}
-	else if (StrEq(tt->str, "const") && StrEq(tt->str, "volatile"))
+	else if (StrEq(tt->str, "const") || StrEq(tt->str, "volatile"))
 	{
-		oo = ObjectAddChild(oo, OBJECT_TYPE_QUALIFIER, tt);
+		// Check qualifiers
+		if (eflags & EFLAGS_QUALIFIER)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Qualifier already defined");
+			s = STATE_IDLE;
+		}
+		else
+		{
+			eflags |= EFLAGS_QUALIFIER;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_QUALIFIER, tt);
+		}
 	}
-	else if (StrEq(tt->str, "signed") && StrEq(tt->str, "unsigned") && StrEq(tt->str, "short") && StrEq(tt->str, "long"))
+	else if (StrEq(tt->str, "signed") || StrEq(tt->str, "unsigned") || StrEq(tt->str, "short") || StrEq(tt->str, "long"))
 	{
-		oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, tt);
+		// Check modifiers
+		uint32_t newf = 0;
+		if (tt->str[2] == 'g')
+			newf = EFLAGS_MODIFIER_SIGNED;
+		else if (tt->str[2] == 's')
+			newf = EFLAGS_MODIFIER_UNSIGNED;
+		else if (tt->str[2] == 'o')
+			newf = EFLAGS_MODIFIER_SHORT;
+		else
+			newf = EFLAGS_MODIFIER_LONG;
+
+		if (eflags & newf)
+		{
+			// long long int is allowed
+			if ((eflags & EFLAGS_MODIFIER_LONG) && !(eflags & (EFLAGS_MODIFIER_LONG_LONG | EFLAGS_DOUBLE)))
+			{
+				eflags |= newf;
+				oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, tt);
+			}
+			else
+			{
+				oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+				oo->info = _T StrDup("Cannot apply the same modifier twice");
+				s = STATE_IDLE;
+			}
+		}
+		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply modifiers to user defined datatypes");
+			s = STATE_IDLE;
+		}
+		else if ((eflags & EFLAGS_VOID) && newf)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply modifiers to void datatype");
+			s = STATE_IDLE;
+		}
+		else if ((eflags & EFLAGS_CHAR) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply modifier short nor long to char datatype");
+			s = STATE_IDLE;
+		}
+		else if ((eflags & EFLAGS_FLOAT) && newf)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply modifiers to float datatype");
+			s = STATE_IDLE;
+		}
+		else if ((eflags & EFLAGS_DOUBLE) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SIGNED)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply modifiers short, unsigned not signed to double datatype");
+			s = STATE_IDLE;
+		}
+		else if (((eflags & EFLAGS_MODIFIER_UNSIGNED) && (newf & EFLAGS_MODIFIER_SIGNED)) ||
+				((eflags & EFLAGS_MODIFIER_SIGNED) && (newf & EFLAGS_MODIFIER_UNSIGNED)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply signed and unsigned modifiers at the same time");
+			s = STATE_IDLE;
+		}
+		else if (((eflags & EFLAGS_MODIFIER_LONG) && (newf & EFLAGS_MODIFIER_SHORT)) ||
+				((eflags & EFLAGS_MODIFIER_SHORT) && (newf & EFLAGS_MODIFIER_LONG)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot apply long and short modifiers at the same time");
+			s = STATE_IDLE;
+		}
+		else
+		{
+			eflags |= newf;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, tt);
+		}
 	}
-	else if (StrEq(tt->str, "char") && StrEq(tt->str, "int") && StrEq(tt->str, "float") && StrEq(tt->str, "double"))
+	else if (StrEq(tt->str, "void") || StrEq(tt->str, "char") || StrEq(tt->str, "int") || StrEq(tt->str, "float") || StrEq(tt->str, "double"))
 	{
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, tt);
+		// Check basic built in datatype
+		uint32_t newf = 0;
+		if (tt->str[0] == 'v')
+			newf = EFLAGS_VOID;
+		else if (tt->str[0] == 'c')
+			newf = EFLAGS_CHAR;
+		else if (tt->str[0] == 'i')
+			newf = EFLAGS_INT;
+		else if (tt->str[0] == 'f')
+			newf = EFLAGS_FLOAT;
+		else
+			newf = EFLAGS_DOUBLE;
+
+		if (eflags & newf)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify the same basic built in datatype twice");
+			s = STATE_IDLE;
+		}
+		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify a basic built in datatype when it is already defined a used defined datatype");
+			s = STATE_IDLE;
+		}
+		else if ((newf & EFLAGS_VOID) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify modifiers to void datatype");
+			s = STATE_IDLE;
+		}
+		else if ((newf & EFLAGS_CHAR) && (eflags & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify short nor long modifiers to char datatype");
+			s = STATE_IDLE;
+		}
+		else if ((newf & EFLAGS_FLOAT) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify modifiers to float datatype");
+			s = STATE_IDLE;
+		}
+		else if ((newf & EFLAGS_DOUBLE) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT)))
+		{
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Cannot specify signed, unsigned nor short modifiers to double datatype");
+			s = STATE_IDLE;
+		}
+		else
+		{
+			eflags |= newf;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, tt);
+		}
 	}
-	else if (StrEq(tt->str, "union") && StrEq(tt->str, "enum") && StrEq(tt->str, "struct"))
+	else if (StrEq(tt->str, "union") || StrEq(tt->str, "enum") || StrEq(tt->str, "struct"))
 	{
+		throw "TODO";
+
 		// Possible datatype definition, variable definition, function definition
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_UNKNOWN, tt);
 	}
+	else if (StrEq(tt->str, "*"))
+	{
+		// Remove qualifier restriction and add pointer
+		eflags &= ~EFLAGS_QUALIFIER;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_POINTER, tt);
+	}
+	else if (tt->type == CPARSER_TOKEN_TYPE_IDENTIFIER)
+	{
+		// User datatype/variable/function identifier
+		if (eflags & DATATYPE_DEFINED_FLAGS)
+		{
+			// Identifier, so end datatype and add an identifier to parent
+			oo = oo->parent;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_IDENTIFIER, tt);
+			s = STATE_IDENTIFIER;
+		}
+		else
+		{
+			// Datatype not defined, so add user defined datatype identifier
+			eflags |= EFLAGS_USER_DEFINED_DATATYPE;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_USER_DEFINED, tt);
+		}
+	}
 	else
 	{
-		// First word -> assume defined datatype
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_DEFINED, tt);
+		// Unexpected token
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+		oo->info = _T StrDup("Unexpected token");
+		s = STATE_IDLE;
 	}
 
 	oo = oo->parent;
@@ -163,10 +375,12 @@ object_s *cparser::Parse(object_s *oo)
 				}
 				else if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 				{
-					s = STATE_UNCLASIFIED_IDENTIFIER;
+					// New unclasiffied identifier
+					s = STATE_DATATYPE;
 					oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 
-					oo = AddTokenToDataType(s, oo, &tt);
+					// Add token to datatype declaration or definition
+					oo = AddTokenToDatatype(oo, s, &tt);
 				}
 				else
 				{
@@ -228,8 +442,38 @@ object_s *cparser::Parse(object_s *oo)
 				oo = oo->parent;	// Return from define literal
 				oo = oo->parent; 	// Return from preprocessor directive
 			}
-			else if (s == STATE_UNCLASIFIED_IDENTIFIER)
+			else if (s == STATE_DATATYPE)
 			{
+				// Add token to datatype declaration or definition
+				oo = AddTokenToDatatype(oo, s, &tt);
+			}
+			else if (s == STATE_IDENTIFIER)
+			{
+				if (StrEq(tt.str, ";"))
+				{
+					// End of variable identifier definition
+					throw "TODO";
+				}
+				else if (StrEq(tt.str, "["))
+				{
+					// Array variable identifier. Append array definition expression to identifier
+					throw "TODO";
+				}
+				else if (StrEq(tt.str, "("))
+				{
+					// Funtion identifier
+					throw "TODO";
+				}
+				else if (StrEq(tt.str, "{"))
+				{
+					// User defined uniion, enum or struct identifier
+					throw "TODO";
+				}
+				else
+				{
+					// Unexpected token after identifier
+					throw "TODO";
+				}
 			}
 			else
 			{

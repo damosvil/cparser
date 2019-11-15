@@ -24,13 +24,15 @@ enum object_type_e
 	OBJECT_TYPE_HEADER_FILE,
 	OBJECT_TYPE_WARNING,
 	OBJECT_TYPE_ERROR,
-	OBJECT_TYPE_DATATYPE,
 	OBJECT_TYPE_SPECIFIER,
 	OBJECT_TYPE_QUALIFIER,
 	OBJECT_TYPE_MODIFIER,
+	OBJECT_TYPE_DATATYPE,
 	OBJECT_TYPE_DATATYPE_PRIMITIVE,
 	OBJECT_TYPE_DATATYPE_UNKNOWN,
-	OBJECT_TYPE_DATATYPE_DEFINED,
+	OBJECT_TYPE_DATATYPE_USER_DEFINED,
+	OBJECT_TYPE_IDENTIFIER,
+	OBJECT_TYPE_POINTER,
 	OBJECT_TYPE_VARIABLE,
 	OBJECT_TYPE_FUNCTION
 };
@@ -53,6 +55,7 @@ struct object_s
 
 object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token);
 object_s *ObjectGetChildByType(object_s *parent, object_type_e type);
+object_s *ObjectGetLastChild(object_s *parent, object_type_e type);
 
 
 } /* namespace cparser */

@@ -52,5 +52,13 @@ object_s *ObjectGetChildByType(object_s *parent, object_type_e type)
 	return NULL;
 }
 
+object_s *ObjectGetLastChild(object_s *parent, object_type_e type)
+{
+	if (parent->children_count == 0)
+		return NULL;
+
+	return parent->children[parent->children_count - 1];
+}
+
 
 } /* namespace cgl */

@@ -24,14 +24,15 @@ private:
 		STATE_INCLUDE,
 		STATE_DEFINE,
 		STATE_DEFINE_IDENTIFIER,
-		STATE_UNCLASIFIED_IDENTIFIER,
+		STATE_DATATYPE,
 		STATE_PRAGMA,
+		STATE_IDENTIFIER,
 	};
 
 	const cparser_paths *paths;
 	const uint8_t *filename;
 
-	static object_s * AddTokenToDataType(states_e &s, object_s *oo, token_s *tt);
+	static object_s * AddTokenToDatatype(object_s *oo, states_e &s, token_s *tt);
 
 public:
 	cparser(const cparser_paths *paths, const uint8_t *filename);
