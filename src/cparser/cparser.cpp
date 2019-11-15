@@ -78,8 +78,7 @@ object_s * cparser::AddTokenToDataType(states_e &s, object_s *oo, token_s *tt)
 	{
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, tt);
 	}
-	else if (StrEq(tt->str, "typedef") && StrEq(tt->str, "union") && StrEq(tt->str, "enum") &&
-			StrEq(tt->str, "struct"))
+	else if (StrEq(tt->str, "union") && StrEq(tt->str, "enum") && StrEq(tt->str, "struct"))
 	{
 		// Possible datatype definition, variable definition, function definition
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_UNKNOWN, tt);
