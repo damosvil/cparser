@@ -409,6 +409,7 @@ object_s *cparser::Parse(object_s *oo)
 				{
 					// Unexpected token
 					oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+					oo->info = _T StrDup("Unexpected preprocessor directive");
 					oo = oo->parent;
 					s = STATE_IDLE;
 				}
@@ -451,13 +452,25 @@ object_s *cparser::Parse(object_s *oo)
 			{
 				if (StrEq(tt.str, ";"))
 				{
-					// End of variable identifier definition
-					throw "TODO";
+					// The last two children of this object are part of a variable (datatype and identifier),
+					// so move them below a variable
+					throw "REWORK ";
+
+					oo = ObjectAddChild(oo, OBJECT_TYPE_VARIABLE, &tt);
+					oo->children[0] = oo->parent->children[oo->parent->children_count - 3];	// Move datatype
+					oo->children[1] = oo->parent->children[oo->parent->children_count - 2];	// Move identifier
+					oo->parent->children[oo->parent->children_count - 3] = oo;				// Move back variable into parent childrens'
+					oo->parent->children_count -= 2;  										// Now parent has two children less
+					oo = oo->parent;
+					s = STATE_IDLE;
 				}
 				else if (StrEq(tt.str, "["))
 				{
-					// Array variable identifier. Append array definition expression to identifier
-					throw "TODO";
+					// Array variable identifier
+					oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DEFINITION, &tt);
+					oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_SQ_BRACKET, &tt);
+					oo = oo->parent;		// return to array definition
+					s = STATE_ARRAY_EXPRESSION;
 				}
 				else if (StrEq(tt.str, "("))
 				{
@@ -469,9 +482,68 @@ object_s *cparser::Parse(object_s *oo)
 					// User defined uniion, enum or struct identifier
 					throw "TODO";
 				}
+				else if (StrEq(tt.str, "="))
+				{
+					// Initial value assignation
+					throw "TODO";
+				}
 				else
 				{
 					// Unexpected token after identifier
+					oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+					oo->info = _T StrDup("Unexpected token after identifier");
+					oo = oo->parent;
+					s = STATE_IDLE;
+				}
+			}
+			else if (s == STATE_ARRAY_EXPRESSION)
+			{
+				if (StrEq(tt.str, "]"))
+				{
+					if (oo->parent->type == OBJECT_TYPE_ARRAY_DEFINITION)
+					{
+						// Close bracket, so return to identifier state
+						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+						oo = oo->parent;	// return to array definition
+						oo = oo->parent;	// return to array definition parent
+						s = STATE_IDENTIFIER;
+					}
+					else
+					{
+						// Unexpected token after identifier
+						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+						oo->info = _T StrDup("Unexpected close square bracket");
+						oo = oo->parent;
+						s = STATE_IDLE;
+					}
+				}
+				else if (StrEq(tt.str, "("))
+				{
+					oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION, &tt);
+					oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, &tt);
+					oo = oo->parent;		// return to array definition
+				}
+				else if (StrEq(tt.str, ")"))
+				{
+					if (oo->parent->type == OBJECT_TYPE_EXPRESSION)
+					{
+						// Close bracket, so return to identifier state
+						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+						oo = oo->parent;	// return to expression
+						oo = oo->parent;	// return to expression parent
+					}
+					else
+					{
+						// Unexpected token after identifier
+						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
+						oo->info = _T StrDup("Unexpected close parenthesys");
+						oo = oo->parent;
+						s = STATE_IDLE;
+					}
+				}
+				else
+				{
+					// Append token
 					throw "TODO";
 				}
 			}

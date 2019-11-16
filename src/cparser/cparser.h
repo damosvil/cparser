@@ -27,6 +27,7 @@ private:
 		STATE_DATATYPE,
 		STATE_PRAGMA,
 		STATE_IDENTIFIER,
+		STATE_ARRAY_EXPRESSION,
 	};
 
 	const cparser_paths *paths;
