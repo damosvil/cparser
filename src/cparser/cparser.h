@@ -27,13 +27,17 @@ private:
 		STATE_DATATYPE,
 		STATE_PRAGMA,
 		STATE_IDENTIFIER,
-		STATE_ARRAY_EXPRESSION,
+		STATE_ARRAY_DEFINITION,
+		STATE_INITIALIZATION,
 	};
 
 	const cparser_paths *paths;
 	const uint8_t *filename;
 
-	static object_s * AddTokenToDatatype(object_s *oo, states_e &s, token_s *tt);
+	static object_s * StateDatatypeProcessToken(object_s *oo, states_e &s, token_s *tt);
+	static object_s * StateIdentifierProcessToken(object_s *oo, states_e &s, token_s *tt);
+	static object_s * StateInitializationProcessToken(object_s *oo, states_e &s, token_s *tt);
+	static object_s * StateArrayDefinitionProcessToken(object_s *oo, states_e &s, token_s *tt);
 
 public:
 	cparser(const cparser_paths *paths, const uint8_t *filename);

@@ -86,7 +86,7 @@ cparser::~cparser()
 	delete filename;
 }
 
-object_s * cparser::AddTokenToDatatype(object_s *oo, states_e &s, token_s *tt)
+object_s * cparser::StateDatatypeProcessToken(object_s *oo, states_e &s, token_s *tt)
 {
 	static uint32_t eflags = EFLAGS_NONE;
 
@@ -306,6 +306,188 @@ object_s * cparser::AddTokenToDatatype(object_s *oo, states_e &s, token_s *tt)
 	return oo;
 }
 
+object_s *cparser::StateIdentifierProcessToken(object_s *oo, states_e &s, token_s *tt)
+{
+	if (StrEq(tt->str, ";"))
+	{
+		// The last two children of this object are part of a variable (datatype and identifier),
+		// so move them below a variable
+		throw "REWORK ";
+
+		oo = ObjectAddChild(oo, OBJECT_TYPE_VARIABLE, tt);
+		oo->children[0] = oo->parent->children[oo->parent->children_count - 3];	// Move datatype
+		oo->children[1] = oo->parent->children[oo->parent->children_count - 2];	// Move identifier
+		oo->parent->children[oo->parent->children_count - 3] = oo;				// Move back variable into parent childrens'
+		oo->parent->children_count -= 2;  										// Now parent has two children less
+		oo = oo->parent;
+		s = STATE_IDLE;
+	}
+	else if (StrEq(tt->str, "["))
+	{
+		// Array variable identifier
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DEFINITION, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_SQ_BRACKET, tt);
+		oo = oo->parent;		// return to array definition
+		s = STATE_ARRAY_DEFINITION;
+	}
+	else if (StrEq(tt->str, "("))
+	{
+		// Funtion identifier
+		throw "TODO";
+	}
+	else if (StrEq(tt->str, "{"))
+	{
+		// User defined union, enum or struct identifier
+		throw "TODO";
+	}
+	else if (StrEq(tt->str, "="))
+	{
+		// Initialization: Initial value assignation
+		oo = ObjectAddChild(oo, OBJECT_TYPE_INITIALIZATION, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ASSIGNATION, tt);
+		oo = oo->parent;		// return to array definition
+		s = STATE_INITIALIZATION;
+	}
+	else
+	{
+		// Unexpected token after identifier
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+		oo->info = _T StrDup("Unexpected token after identifier");
+		oo = oo->parent;
+		s = STATE_IDLE;
+	}
+
+	return oo;
+}
+
+object_s *cparser::StateInitializationProcessToken(object_s *oo, states_e &s, token_s *tt)
+{
+	static int32_t array_nesting_level = 0;
+
+	if (oo->type != OBJECT_TYPE_ARRAY_ITEM)
+	{
+		array_nesting_level = 0;
+	}
+
+	if (StrEq(tt->str, "{"))
+	{
+		// Array initialization data
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DATA, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);
+		array_nesting_level++;
+	}
+	else if (StrEq(tt->str, "}"))
+	{
+		array_nesting_level--;
+
+		if (array_nesting_level >= 0)
+		{
+			oo = oo->parent;										// Return to array data
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);	// Add new array item
+			oo = oo->parent;
+		}
+		else
+		{
+			// Unexpected close bracket
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Unexpected close bracket");
+			oo = oo->parent;
+			s = STATE_IDLE;
+		}
+	}
+	else if (StrEq(tt->str, ","))
+	{
+		// Add new array item
+		oo = oo->parent;										// Return to array data
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);	// Add new array item
+	}
+	else if (StrEq(tt->str, ";"))
+	{
+		// End of array definition
+		throw "TODO";
+
+		if (array_nesting_level == 0)
+		{
+
+		}
+		else
+		{
+
+		}
+	}
+	else
+	{
+		// Expression -> Add expression tokens
+		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION_TOKEN, tt);	// Add new expression
+		oo = oo->parent;											// Return to array item
+	}
+
+	return oo;
+}
+
+object_s *cparser::StateArrayDefinitionProcessToken(object_s *oo, states_e &s, token_s *tt)
+{
+	if (StrEq(tt->str, "["))
+	{
+		// Unexpected open square bracket
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+		oo->info = _T StrDup("Unexpected open square bracket");
+		oo = oo->parent;
+		s = STATE_IDLE;
+	}
+	else if (StrEq(tt->str, "]"))
+	{
+		if (oo->type == OBJECT_TYPE_ARRAY_DEFINITION)
+		{
+			// Close bracket, so return to identifier state
+			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_SQ_BRACKET, tt);
+			oo = oo->parent;	// return to array definition
+			oo = oo->parent;	// return to array definition parent
+			s = STATE_IDENTIFIER;
+		}
+		else
+		{
+			// Unexpected token after identifier
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Unexpected close square bracket");
+			oo = oo->parent;
+			s = STATE_IDLE;
+		}
+	}
+	else if (StrEq(tt->str, "("))
+	{
+		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, tt);
+		oo = oo->parent;		// return to array definition
+	}
+	else if (StrEq(tt->str, ")"))
+	{
+		if (oo->parent->type == OBJECT_TYPE_EXPRESSION)
+		{
+			// Close bracket, so return to identifier state
+			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_PARENTHESYS, tt);
+			oo = oo->parent;	// return to expression
+			oo = oo->parent;	// return to expression parent
+		}
+		else
+		{
+			// Unexpected token after identifier
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Unexpected close parenthesys");
+			oo = oo->parent;
+			s = STATE_IDLE;
+		}
+	}
+	else
+	{
+		// Digest expression token
+		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION_TOKEN, tt);
+		oo = oo->parent;	// return to expression
+	}
+
+	return oo;
+}
+
 object_s *cparser::Parse(object_s *oo)
 {
 	FILE *f;
@@ -380,7 +562,7 @@ object_s *cparser::Parse(object_s *oo)
 					oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 
 					// Add token to datatype declaration or definition
-					oo = AddTokenToDatatype(oo, s, &tt);
+					oo = StateDatatypeProcessToken(oo, s, &tt);
 				}
 				else
 				{
@@ -446,106 +628,15 @@ object_s *cparser::Parse(object_s *oo)
 			else if (s == STATE_DATATYPE)
 			{
 				// Add token to datatype declaration or definition
-				oo = AddTokenToDatatype(oo, s, &tt);
+				oo = StateDatatypeProcessToken(oo, s, &tt);
 			}
 			else if (s == STATE_IDENTIFIER)
 			{
-				if (StrEq(tt.str, ";"))
-				{
-					// The last two children of this object are part of a variable (datatype and identifier),
-					// so move them below a variable
-					throw "REWORK ";
-
-					oo = ObjectAddChild(oo, OBJECT_TYPE_VARIABLE, &tt);
-					oo->children[0] = oo->parent->children[oo->parent->children_count - 3];	// Move datatype
-					oo->children[1] = oo->parent->children[oo->parent->children_count - 2];	// Move identifier
-					oo->parent->children[oo->parent->children_count - 3] = oo;				// Move back variable into parent childrens'
-					oo->parent->children_count -= 2;  										// Now parent has two children less
-					oo = oo->parent;
-					s = STATE_IDLE;
-				}
-				else if (StrEq(tt.str, "["))
-				{
-					// Array variable identifier
-					oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DEFINITION, &tt);
-					oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_SQ_BRACKET, &tt);
-					oo = oo->parent;		// return to array definition
-					s = STATE_ARRAY_EXPRESSION;
-				}
-				else if (StrEq(tt.str, "("))
-				{
-					// Funtion identifier
-					throw "TODO";
-				}
-				else if (StrEq(tt.str, "{"))
-				{
-					// User defined uniion, enum or struct identifier
-					throw "TODO";
-				}
-				else if (StrEq(tt.str, "="))
-				{
-					// Initial value assignation
-					throw "TODO";
-				}
-				else
-				{
-					// Unexpected token after identifier
-					oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
-					oo->info = _T StrDup("Unexpected token after identifier");
-					oo = oo->parent;
-					s = STATE_IDLE;
-				}
+				oo = StateIdentifierProcessToken(oo, s, &tt);
 			}
-			else if (s == STATE_ARRAY_EXPRESSION)
+			else if (s == STATE_ARRAY_DEFINITION)
 			{
-				if (StrEq(tt.str, "]"))
-				{
-					if (oo->parent->type == OBJECT_TYPE_ARRAY_DEFINITION)
-					{
-						// Close bracket, so return to identifier state
-						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
-						oo = oo->parent;	// return to array definition
-						oo = oo->parent;	// return to array definition parent
-						s = STATE_IDENTIFIER;
-					}
-					else
-					{
-						// Unexpected token after identifier
-						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
-						oo->info = _T StrDup("Unexpected close square bracket");
-						oo = oo->parent;
-						s = STATE_IDLE;
-					}
-				}
-				else if (StrEq(tt.str, "("))
-				{
-					oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION, &tt);
-					oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, &tt);
-					oo = oo->parent;		// return to array definition
-				}
-				else if (StrEq(tt.str, ")"))
-				{
-					if (oo->parent->type == OBJECT_TYPE_EXPRESSION)
-					{
-						// Close bracket, so return to identifier state
-						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
-						oo = oo->parent;	// return to expression
-						oo = oo->parent;	// return to expression parent
-					}
-					else
-					{
-						// Unexpected token after identifier
-						oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &tt);
-						oo->info = _T StrDup("Unexpected close parenthesys");
-						oo = oo->parent;
-						s = STATE_IDLE;
-					}
-				}
-				else
-				{
-					// Append token
-					throw "TODO";
-				}
+				oo = StateArrayDefinitionProcessToken(oo, s, &tt);
 			}
 			else
 			{
