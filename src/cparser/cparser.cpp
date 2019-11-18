@@ -14,19 +14,6 @@
 #include "cparserobject.h"
 #include "cparser.h"
 
-//static const char *keywords[] = {
-//	"auto", "break", "case", "char",
-//	"const", "continue", "default", "do",
-//	"double", "else", "enum", "extern",
-//	"float", "for", "goto", "if",
-//	"int", "long", "register", "return",
-//	"short", "signed", "sizeof", "static",
-//	"struct", "switch", "typedef", "union",
-//	"unsigned", "void", "volatile", "while",
-//	NULL
-//};
-
-
 enum eflags_e
 {
 	EFLAGS_NONE 				    = 0,
@@ -43,21 +30,22 @@ enum eflags_e
 	EFLAGS_FLOAT 				    = 1 << 11,
 	EFLAGS_DOUBLE 				    = 1 << 12,
 	EFLAGS_USER_DEFINED_DATATYPE	= 1 << 13,
+	EFLAGS_COMPOSED_DATATYPE		= 1 << 14
 };
 
 
 #define DATATYPE_DEFINED_FLAGS  	(\
-									EFLAGS_MODIFIER_SIGNED 		       |\
-									EFLAGS_MODIFIER_UNSIGNED 	       |\
-									EFLAGS_MODIFIER_SHORT 		       |\
-									EFLAGS_MODIFIER_LONG 		       |\
-									EFLAGS_MODIFIER_LONG_LONG 	       |\
-									EFLAGS_VOID 				       |\
-									EFLAGS_CHAR 				       |\
-									EFLAGS_INT 					       |\
-									EFLAGS_FLOAT 				       |\
-									EFLAGS_DOUBLE 				       |\
-									EFLAGS_USER_DEFINED_DATATYPE		\
+									EFLAGS_MODIFIER_SIGNED 		       	|\
+									EFLAGS_MODIFIER_UNSIGNED 	      	|\
+									EFLAGS_MODIFIER_SHORT 		       	|\
+									EFLAGS_MODIFIER_LONG 		       	|\
+									EFLAGS_MODIFIER_LONG_LONG 	       	|\
+									EFLAGS_VOID 				       	|\
+									EFLAGS_CHAR 				       	|\
+									EFLAGS_INT 					       	|\
+									EFLAGS_FLOAT 				       	|\
+									EFLAGS_DOUBLE 				       	|\
+									EFLAGS_USER_DEFINED_DATATYPE		 \
 									)
 
 
@@ -143,7 +131,7 @@ object_s * cparser::ProcessStatePreprocessor(object_s *oo, states_e &s, token_s 
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 		oo->info = _T StrDup("Unexpected preprocessor directive");
 		oo = oo->parent;
-		s = STATE_IDLE;
+		s = STATE_ERROR;
 	}
 
 	return oo;
@@ -179,7 +167,7 @@ object_s * cparser::ProcessStateDefineLiteral(object_s *oo, states_e &s, token_s
 	return oo;
 }
 
-object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
+object_s * cparser::DigestDataType(object_s *oo, token_s *tt)
 {
 	static uint32_t eflags = EFLAGS_NONE;
 
@@ -198,7 +186,6 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Specifier already defined");
-			s = STATE_IDLE;
 		}
 		else
 		{
@@ -213,7 +200,6 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Qualifier already defined");
-			s = STATE_IDLE;
 		}
 		else
 		{
@@ -246,52 +232,44 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 			{
 				oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 				oo->info = _T StrDup("Cannot apply the same modifier twice");
-				s = STATE_IDLE;
 			}
 		}
 		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply modifiers to user defined datatypes");
-			s = STATE_IDLE;
 		}
 		else if ((eflags & EFLAGS_VOID) && newf)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply modifiers to void datatype");
-			s = STATE_IDLE;
 		}
 		else if ((eflags & EFLAGS_CHAR) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply modifier short nor long to char datatype");
-			s = STATE_IDLE;
 		}
 		else if ((eflags & EFLAGS_FLOAT) && newf)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply modifiers to float datatype");
-			s = STATE_IDLE;
 		}
 		else if ((eflags & EFLAGS_DOUBLE) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SIGNED)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply modifiers short, unsigned not signed to double datatype");
-			s = STATE_IDLE;
 		}
 		else if (((eflags & EFLAGS_MODIFIER_UNSIGNED) && (newf & EFLAGS_MODIFIER_SIGNED)) ||
 				((eflags & EFLAGS_MODIFIER_SIGNED) && (newf & EFLAGS_MODIFIER_UNSIGNED)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply signed and unsigned modifiers at the same time");
-			s = STATE_IDLE;
 		}
 		else if (((eflags & EFLAGS_MODIFIER_LONG) && (newf & EFLAGS_MODIFIER_SHORT)) ||
 				((eflags & EFLAGS_MODIFIER_SHORT) && (newf & EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot apply long and short modifiers at the same time");
-			s = STATE_IDLE;
 		}
 		else
 		{
@@ -318,37 +296,31 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify the same basic built in datatype twice");
-			s = STATE_IDLE;
 		}
 		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify a basic built in datatype when it is already defined a used defined datatype");
-			s = STATE_IDLE;
 		}
 		else if ((newf & EFLAGS_VOID) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify modifiers to void datatype");
-			s = STATE_IDLE;
 		}
 		else if ((newf & EFLAGS_CHAR) && (eflags & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify short nor long modifiers to char datatype");
-			s = STATE_IDLE;
 		}
 		else if ((newf & EFLAGS_FLOAT) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify modifiers to float datatype");
-			s = STATE_IDLE;
 		}
 		else if ((newf & EFLAGS_DOUBLE) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Cannot specify signed, unsigned nor short modifiers to double datatype");
-			s = STATE_IDLE;
 		}
 		else
 		{
@@ -358,16 +330,28 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 	}
 	else if (StrEq(tt->str, "union") || StrEq(tt->str, "enum") || StrEq(tt->str, "struct"))
 	{
-		throw "TODO";
-
 		// Possible datatype definition, variable definition, function definition
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_UNKNOWN, tt);
+		eflags |= ~EFLAGS_COMPOSED_DATATYPE;
+
+		// Add child
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_USER_DEFINED, tt);
+		if (tt->str[0] == 'u')
+			oo = ObjectAddChild(oo, OBJECT_TYPE_UNION, tt);
+		else if (tt->str[0] == 'e')
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ENUM, tt);
+		else
+			oo = ObjectAddChild(oo, OBJECT_TYPE_STRUCT, tt);
 	}
 	else if (StrEq(tt->str, "*"))
 	{
 		// Remove qualifier restriction and add pointer
 		eflags &= ~EFLAGS_QUALIFIER;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_POINTER, tt);
+	}
+	else if (StrEq(tt->str, "{"))
+	{
+		// Datatype embedded definition
+		throw "TODO";
 	}
 	else if (tt->type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
@@ -377,7 +361,6 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 			// Identifier, so end datatype and add an identifier to parent
 			oo = oo->parent;
 			oo = ObjectAddChild(oo, OBJECT_TYPE_IDENTIFIER, tt);
-			s = STATE_IDENTIFIER;
 		}
 		else
 		{
@@ -391,9 +374,23 @@ object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 		// Unexpected token
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 		oo->info = _T StrDup("Unexpected token");
-		s = STATE_IDLE;
 	}
 
+	return oo;
+}
+
+object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
+{
+	// Digest the datatype
+	oo = DigestDataType(oo, tt);
+
+	// Update state depending on what has been digested
+	if (oo->type == OBJECT_TYPE_IDENTIFIER)
+		s = STATE_IDENTIFIER;
+	else if (oo->type == OBJECT_TYPE_ERROR)
+		s = STATE_ERROR;
+
+	// Return to parent
 	oo = oo->parent;
 
 	return oo;
@@ -418,8 +415,12 @@ object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt
 	}
 	else if (StrEq(tt->str, "("))
 	{
-		// Funtion identifier
-		throw "TODO";
+		// Function identifier
+		oo = ObjectAddChild(oo, OBJECT_TYPE_FUNCTION_PARAMETERS, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, tt);
+		oo = oo->parent;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);
+		s = STATE_FUNCTION_PARAMETERS;
 	}
 	else if (StrEq(tt->str, "{"))
 	{
@@ -439,7 +440,7 @@ object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 		oo->info = _T StrDup("Unexpected token after identifier");
 		oo = oo->parent;
-		s = STATE_IDLE;
+		s = STATE_ERROR;
 	}
 
 	return oo;
@@ -480,7 +481,7 @@ object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Unexpected close bracket during variable initialization");
 			oo = oo->parent;
-			s = STATE_IDLE;
+			s = STATE_ERROR;
 		}
 	}
 	else if (StrEq(tt->str, ","))
@@ -497,7 +498,7 @@ object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Unexpected , during variable initialization");
 			oo = oo->parent;
-			s = STATE_IDLE;
+			s = STATE_ERROR;
 		}
 	}
 	else if (StrEq(tt->str, ";"))
@@ -507,6 +508,7 @@ object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s
 			// Sentence end token
 			oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);	// Add new expression
 			oo = oo->parent;										// Return to array item
+			s = STATE_IDLE;
 		}
 		else
 		{
@@ -514,10 +516,8 @@ object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Unexpected sentence end during array variable initialization");
 			oo = oo->parent;
+			s = STATE_ERROR;
 		}
-
-		// Return to idle state
-		s = STATE_IDLE;
 	}
 	else
 	{
@@ -537,7 +537,7 @@ object_s *cparser::ProcessStateArrayDefinition(object_s *oo, states_e &s, token_
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 		oo->info = _T StrDup("Unexpected open square bracket");
 		oo = oo->parent;
-		s = STATE_IDLE;
+		s = STATE_ERROR;
 	}
 	else if (StrEq(tt->str, "]"))
 	{
@@ -555,31 +555,7 @@ object_s *cparser::ProcessStateArrayDefinition(object_s *oo, states_e &s, token_
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Unexpected close square bracket");
 			oo = oo->parent;
-			s = STATE_IDLE;
-		}
-	}
-	else if (StrEq(tt->str, "("))
-	{
-		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION, tt);
-		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, tt);
-		oo = oo->parent;		// return to array definition
-	}
-	else if (StrEq(tt->str, ")"))
-	{
-		if (oo->parent->type == OBJECT_TYPE_EXPRESSION)
-		{
-			// Close bracket, so return to identifier state
-			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_PARENTHESYS, tt);
-			oo = oo->parent;	// return to expression
-			oo = oo->parent;	// return to expression parent
-		}
-		else
-		{
-			// Unexpected token after identifier
-			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
-			oo->info = _T StrDup("Unexpected close parenthesys");
-			oo = oo->parent;
-			s = STATE_IDLE;
+			s = STATE_ERROR;
 		}
 	}
 	else
@@ -587,6 +563,44 @@ object_s *cparser::ProcessStateArrayDefinition(object_s *oo, states_e &s, token_
 		// Digest expression token
 		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION_TOKEN, tt);
 		oo = oo->parent;	// return to expression
+	}
+
+	return oo;
+}
+
+object_s * cparser::ProcessStateFunctionParameters(object_s *oo, states_e &s, token_s *tt)
+{
+	if (StrEq(tt->str, ")"))
+	{
+		s = STATE_FUNCTION_DECLARED;
+
+		// Return to function parameters (if no identifier has been parsed)
+		if (oo->type == OBJECT_TYPE_DATATYPE)
+			oo = oo->parent;
+
+		oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_PARENTHESYS, tt);		// Add parenthesys
+		oo = oo->parent;												// Return to function parameters
+		oo = oo->parent;												// Return to function parameters parent
+	}
+	else if (StrEq(tt->str, ","))
+	{
+		// Return to function parameters (if no identifier has been parsed)
+		if (oo->type == OBJECT_TYPE_DATATYPE)
+			oo = oo->parent;
+
+		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETERS_SEPARATOR, tt);	// Add new parameter definition
+		oo = oo->parent;												// Return to function parameters
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);				// Add datatype for next parameter
+	}
+	else
+	{
+		// Digest the datatype
+		oo = DigestDataType(oo, tt);
+		oo = oo->parent;
+
+		// Update state
+		if (oo->type == OBJECT_TYPE_ERROR)
+			s = STATE_ERROR;
 	}
 
 	return oo;
@@ -625,7 +639,7 @@ object_s *cparser::Parse(object_s *oo)
 	// Process tokens from file
 	states_e s = STATE_IDLE;
 	uint32_t tokenizer_flags = 0;
-	while (TokenNext(f, &tt, tokenizer_flags))
+	while ((s != STATE_ERROR) && TokenNext(f, &tt, tokenizer_flags))
 	{
 		// Reset flags after read
 		tokenizer_flags = 0;
@@ -680,6 +694,14 @@ object_s *cparser::Parse(object_s *oo)
 			else if (s == STATE_INITIALIZATION)
 			{
 				oo = ProcessStateInitialization(oo, s, &tt);
+			}
+			else if (s == STATE_FUNCTION_PARAMETERS)
+			{
+				oo = ProcessStateFunctionParameters(oo, s, &tt);
+			}
+			else if (s == STATE_FUNCTION_DECLARED)
+			{
+				throw "TODO";
 			}
 			else
 			{
