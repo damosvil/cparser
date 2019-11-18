@@ -34,15 +34,15 @@ private:
 	const cparser_paths *paths;
 	const uint8_t *filename;
 
-	static object_s * ProcessTokenStateIdle(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
-	static object_s * ProcessTokenStatePreprocessor(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
-	static object_s * ProcessTokenStateIncludeFilename(object_s *oo, states_e &s, token_s *tt);
-	static object_s * ProcessTokenStateDefineIdentifier(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
-	static object_s * ProcessTokenStateDefineLiteral(object_s *oo, states_e &s, token_s *tt);
-	static object_s * ProcessTokenStateDatatype(object_s *oo, states_e &s, token_s *tt);
-	static object_s * ProcessTokenStateIdentifier(object_s *oo, states_e &s, token_s *tt);
-	static object_s * ProcessTokenStateInitialization(object_s *oo, states_e &s, token_s *tt);
-	static object_s * ProcessTokenStateArrayDefinition(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateIdle(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
+	static object_s * ProcessStatePreprocessor(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
+	static object_s * ProcessStateIncludeFilename(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateDefineIdentifier(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags);
+	static object_s * ProcessStateDefineLiteral(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateInitialization(object_s *oo, states_e &s, token_s *tt);
+	static object_s * ProcessStateArrayDefinition(object_s *oo, states_e &s, token_s *tt);
 
 public:
 	cparser(const cparser_paths *paths, const uint8_t *filename);

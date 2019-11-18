@@ -72,13 +72,15 @@ static bool ParseNumberLiteralAcceptanceFilter(uint16_t last_char, uint32_t leng
 
 static bool ParseStringLiteralAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
 {
-	return 	(length > 1 && *(end - 1) != '\"') ||
+	return 	(length == 1) ||
+			(length > 1 && *(end - 1) != '\"') ||
 			(length > 2 && *(end - 1) == '\"' && *(end - 2) == '\\');
 }
 
 static bool ParseCharLiteralAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
 {
-	return 	(length > 1 && *(end - 1) != '\'') ||
+	return 	(length == 1) ||
+			(length > 1 && *(end - 1) != '\'') ||
 			(length > 2 && *(end - 1) == '\'' && *(end - 2) == '\\');
 }
 

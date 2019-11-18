@@ -86,7 +86,7 @@ cparser::~cparser()
 	delete filename;
 }
 
-object_s * cparser::ProcessTokenStateIdle(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
+object_s * cparser::ProcessStateIdle(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
 {
 	if (tt->type == CPARSER_TOKEN_TYPE_SINGLE_CHAR)
 	{
@@ -104,10 +104,10 @@ object_s * cparser::ProcessTokenStateIdle(object_s *oo, states_e &s, token_s *tt
 	{
 		// New unclassified identifier
 		s = STATE_DATATYPE;
-		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);
 
 		// Add token to datatype declaration or definition
-		oo = ProcessTokenStateDatatype(oo, s, tt);
+		oo = ProcessStateDatatype(oo, s, tt);
 	}
 	else
 	{
@@ -117,7 +117,7 @@ object_s * cparser::ProcessTokenStateIdle(object_s *oo, states_e &s, token_s *tt
 	return oo;
 }
 
-object_s * cparser::ProcessTokenStatePreprocessor(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
+object_s * cparser::ProcessStatePreprocessor(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
 {
 	if (StrEq(tt->str, "include"))
 	{
@@ -149,7 +149,7 @@ object_s * cparser::ProcessTokenStatePreprocessor(object_s *oo, states_e &s, tok
 	return oo;
 }
 
-object_s * cparser::ProcessTokenStateIncludeFilename(object_s *oo, states_e &s, token_s *tt)
+object_s * cparser::ProcessStateIncludeFilename(object_s *oo, states_e &s, token_s *tt)
 {
 	s = STATE_IDLE;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE_FILENAME, tt);		// Add include filename
@@ -159,7 +159,7 @@ object_s * cparser::ProcessTokenStateIncludeFilename(object_s *oo, states_e &s, 
 	return oo;
 }
 
-object_s * cparser::ProcessTokenStateDefineIdentifier(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
+object_s * cparser::ProcessStateDefineIdentifier(object_s *oo, states_e &s, token_s *tt, uint32_t &tokenizer_flags)
 {
 	s = STATE_DEFINE_LITERAL;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, tt);	// Add define identifier
@@ -169,7 +169,7 @@ object_s * cparser::ProcessTokenStateDefineIdentifier(object_s *oo, states_e &s,
 	return oo;
 }
 
-object_s * cparser::ProcessTokenStateDefineLiteral(object_s *oo, states_e &s, token_s *tt)
+object_s * cparser::ProcessStateDefineLiteral(object_s *oo, states_e &s, token_s *tt)
 {
 	s = STATE_IDLE;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_EXPRESSION, tt);	// Add define expression
@@ -179,7 +179,7 @@ object_s * cparser::ProcessTokenStateDefineLiteral(object_s *oo, states_e &s, to
 	return oo;
 }
 
-object_s * cparser::ProcessTokenStateDatatype(object_s *oo, states_e &s, token_s *tt)
+object_s * cparser::ProcessStateDatatype(object_s *oo, states_e &s, token_s *tt)
 {
 	static uint32_t eflags = EFLAGS_NONE;
 
@@ -399,19 +399,12 @@ object_s * cparser::ProcessTokenStateDatatype(object_s *oo, states_e &s, token_s
 	return oo;
 }
 
-object_s *cparser::ProcessTokenStateIdentifier(object_s *oo, states_e &s, token_s *tt)
+object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt)
 {
 	if (StrEq(tt->str, ";"))
 	{
-		// The last two children of this object are part of a variable (datatype and identifier),
-		// so move them below a variable
-		throw "REWORK ";
-
-		oo = ObjectAddChild(oo, OBJECT_TYPE_VARIABLE, tt);
-		oo->children[0] = oo->parent->children[oo->parent->children_count - 3];	// Move datatype
-		oo->children[1] = oo->parent->children[oo->parent->children_count - 2];	// Move identifier
-		oo->parent->children[oo->parent->children_count - 3] = oo;				// Move back variable into parent childrens'
-		oo->parent->children_count -= 2;  										// Now parent has two children less
+		// Sentence end after variable identifier
+		oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);
 		oo = oo->parent;
 		s = STATE_IDLE;
 	}
@@ -452,7 +445,7 @@ object_s *cparser::ProcessTokenStateIdentifier(object_s *oo, states_e &s, token_
 	return oo;
 }
 
-object_s *cparser::ProcessTokenStateInitialization(object_s *oo, states_e &s, token_s *tt)
+object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s *tt)
 {
 	static int32_t array_data_nesting_level = 0;
 
@@ -464,8 +457,10 @@ object_s *cparser::ProcessTokenStateInitialization(object_s *oo, states_e &s, to
 	if (StrEq(tt->str, "{"))
 	{
 		// Array initialization data
-		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DATA, tt);
-		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_BRACKET, tt);
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DATA, tt);		// Add new array data
+		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_BRACKET, tt);		// Add new open bracket to array data
+		oo = oo->parent;											// Return to array data
+		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);		// Add new array item
 		array_data_nesting_level++;
 	}
 	else if (StrEq(tt->str, "}"))
@@ -475,23 +470,35 @@ object_s *cparser::ProcessTokenStateInitialization(object_s *oo, states_e &s, to
 		if (array_data_nesting_level >= 0)
 		{
 			oo = oo->parent;										// Return to array data
-			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_BRACKET, tt);	// Add new array item
+			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_BRACKET, tt);	// Add close bracket
+			oo = oo->parent;										// Return to array data
 			oo = oo->parent;										// Return to array parent
 		}
 		else
 		{
 			// Unexpected close bracket
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
-			oo->info = _T StrDup("Unexpected close bracket");
+			oo->info = _T StrDup("Unexpected close bracket during variable initialization");
 			oo = oo->parent;
 			s = STATE_IDLE;
 		}
 	}
 	else if (StrEq(tt->str, ","))
 	{
-		// Add new array item
-		oo = oo->parent;										// Return to array data
-		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);	// Add new array item
+		if (array_data_nesting_level > 0)
+		{
+			// Add new array item
+			oo = oo->parent;										// Return to array data
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);	// Add new array item
+		}
+		else
+		{
+			// Unexpected , token during initialization
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Unexpected , during variable initialization");
+			oo = oo->parent;
+			s = STATE_IDLE;
+		}
 	}
 	else if (StrEq(tt->str, ";"))
 	{
@@ -507,8 +514,10 @@ object_s *cparser::ProcessTokenStateInitialization(object_s *oo, states_e &s, to
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
 			oo->info = _T StrDup("Unexpected sentence end during array variable initialization");
 			oo = oo->parent;
-			s = STATE_IDLE;
 		}
+
+		// Return to idle state
+		s = STATE_IDLE;
 	}
 	else
 	{
@@ -520,7 +529,7 @@ object_s *cparser::ProcessTokenStateInitialization(object_s *oo, states_e &s, to
 	return oo;
 }
 
-object_s *cparser::ProcessTokenStateArrayDefinition(object_s *oo, states_e &s, token_s *tt)
+object_s *cparser::ProcessStateArrayDefinition(object_s *oo, states_e &s, token_s *tt)
 {
 	if (StrEq(tt->str, "["))
 	{
@@ -638,39 +647,39 @@ object_s *cparser::Parse(object_s *oo)
 			// Check new tokens
 			if (s == STATE_IDLE)
 			{
-				oo = ProcessTokenStateIdle(oo, s, &tt, tokenizer_flags);
+				oo = ProcessStateIdle(oo, s, &tt, tokenizer_flags);
 			}
 			else if (s == STATE_PREPROCESSOR)
 			{
-				oo = ProcessTokenStatePreprocessor(oo, s, &tt, tokenizer_flags);
+				oo = ProcessStatePreprocessor(oo, s, &tt, tokenizer_flags);
 			}
 			else if (s == STATE_INCLUDE_FILENAME)
 			{
-				oo = ProcessTokenStateIncludeFilename(oo, s, &tt);
+				oo = ProcessStateIncludeFilename(oo, s, &tt);
 			}
 			else if (s == STATE_DEFINE_IDENTIFIER)
 			{
-				oo = ProcessTokenStateDefineIdentifier(oo, s, &tt, tokenizer_flags);
+				oo = ProcessStateDefineIdentifier(oo, s, &tt, tokenizer_flags);
 			}
 			else if (s == STATE_DEFINE_LITERAL)
 			{
-				oo = ProcessTokenStateDefineLiteral(oo, s, &tt);
+				oo = ProcessStateDefineLiteral(oo, s, &tt);
 			}
 			else if (s == STATE_DATATYPE)
 			{
-				oo = ProcessTokenStateDatatype(oo, s, &tt);
+				oo = ProcessStateDatatype(oo, s, &tt);
 			}
 			else if (s == STATE_IDENTIFIER)
 			{
-				oo = ProcessTokenStateIdentifier(oo, s, &tt);
+				oo = ProcessStateIdentifier(oo, s, &tt);
 			}
 			else if (s == STATE_ARRAY_DEFINITION)
 			{
-				oo = ProcessTokenStateArrayDefinition(oo, s, &tt);
+				oo = ProcessStateArrayDefinition(oo, s, &tt);
 			}
 			else if (s == STATE_INITIALIZATION)
 			{
-				oo = ProcessTokenStateInitialization(oo, s, &tt);
+				oo = ProcessStateInitialization(oo, s, &tt);
 			}
 			else
 			{
