@@ -92,6 +92,7 @@ object_s * cparser::ProcessStateIdle(object_s *oo, states_e &s, token_s *tt, uin
 	{
 		// New unclassified identifier
 		s = STATE_DATATYPE;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_TEMPORAL, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);
 
 		// Add token to datatype declaration or definition
@@ -401,13 +402,16 @@ object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt
 	if (StrEq(tt->str, ";"))
 	{
 		// Sentence end after variable identifier
-		oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);
-		oo = oo->parent;
+		oo->type = OBJECT_TYPE_VARIABLE;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);	// Add sentence end
+		oo = oo->parent;										// Return to variable
+		oo = oo->parent;										// Return to variable parent
 		s = STATE_IDLE;
 	}
 	else if (StrEq(tt->str, "["))
 	{
 		// Array variable identifier
+		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DEFINITION, tt);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_SQ_BRACKET, tt);
 		oo = oo->parent;		// return to array definition
@@ -416,9 +420,11 @@ object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt
 	else if (StrEq(tt->str, "("))
 	{
 		// Function identifier
+		oo->type = OBJECT_TYPE_FUNCTION;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_FUNCTION_PARAMETERS, tt);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, tt);
 		oo = oo->parent;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER, tt);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);
 		s = STATE_FUNCTION_PARAMETERS;
 	}
@@ -430,6 +436,7 @@ object_s *cparser::ProcessStateIdentifier(object_s *oo, states_e &s, token_s *tt
 	else if (StrEq(tt->str, "="))
 	{
 		// Initialization: Initial value assignation
+		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_INITIALIZATION, tt);
 		oo = oo->parent;		// return to array definition
 		s = STATE_INITIALIZATION;
@@ -507,7 +514,8 @@ object_s *cparser::ProcessStateInitialization(object_s *oo, states_e &s, token_s
 		{
 			// Sentence end token
 			oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);	// Add new expression
-			oo = oo->parent;										// Return to array item
+			oo = oo->parent;										// Return to variable
+			oo = oo->parent;										// Return to variable parent
 			s = STATE_IDLE;
 		}
 		else
@@ -574,22 +582,25 @@ object_s * cparser::ProcessStateFunctionParameters(object_s *oo, states_e &s, to
 	{
 		s = STATE_FUNCTION_DECLARED;
 
-		// Return to function parameters (if no identifier has been parsed)
+		// Return to parameter (if no identifier has been parsed)
 		if (oo->type == OBJECT_TYPE_DATATYPE)
 			oo = oo->parent;
 
+		oo = oo->parent;												// Return to function parameters
 		oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_PARENTHESYS, tt);		// Add parenthesys
 		oo = oo->parent;												// Return to function parameters
-		oo = oo->parent;												// Return to function parameters parent
+		oo = oo->parent;												// Return to function
 	}
 	else if (StrEq(tt->str, ","))
 	{
-		// Return to function parameters (if no identifier has been parsed)
+		// Return to parameter (if no identifier has been parsed)
 		if (oo->type == OBJECT_TYPE_DATATYPE)
 			oo = oo->parent;
 
-		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETERS_SEPARATOR, tt);	// Add new parameter definition
+		oo = oo->parent;												// Return to parameter
+		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER_SEPARATOR, tt);	// Add new parameter definition
 		oo = oo->parent;												// Return to function parameters
+		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER, tt);				// Add parameter
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, tt);				// Add datatype for next parameter
 	}
 	else
