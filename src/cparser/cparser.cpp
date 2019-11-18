@@ -344,7 +344,6 @@ object_s *cparser::StateIdentifierProcessToken(object_s *oo, states_e &s, token_
 	{
 		// Initialization: Initial value assignation
 		oo = ObjectAddChild(oo, OBJECT_TYPE_INITIALIZATION, tt);
-		oo = ObjectAddChild(oo, OBJECT_TYPE_ASSIGNATION, tt);
 		oo = oo->parent;		// return to array definition
 		s = STATE_INITIALIZATION;
 	}
@@ -362,29 +361,29 @@ object_s *cparser::StateIdentifierProcessToken(object_s *oo, states_e &s, token_
 
 object_s *cparser::StateInitializationProcessToken(object_s *oo, states_e &s, token_s *tt)
 {
-	static int32_t array_nesting_level = 0;
+	static int32_t array_data_nesting_level = 0;
 
 	if (oo->type != OBJECT_TYPE_ARRAY_ITEM)
 	{
-		array_nesting_level = 0;
+		array_data_nesting_level = 0;
 	}
 
 	if (StrEq(tt->str, "{"))
 	{
 		// Array initialization data
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DATA, tt);
-		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);
-		array_nesting_level++;
+		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_BRACKET, tt);
+		array_data_nesting_level++;
 	}
 	else if (StrEq(tt->str, "}"))
 	{
-		array_nesting_level--;
+		array_data_nesting_level--;
 
-		if (array_nesting_level >= 0)
+		if (array_data_nesting_level >= 0)
 		{
 			oo = oo->parent;										// Return to array data
-			oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, tt);	// Add new array item
-			oo = oo->parent;
+			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_BRACKET, tt);	// Add new array item
+			oo = oo->parent;										// Return to array parent
 		}
 		else
 		{
@@ -403,16 +402,19 @@ object_s *cparser::StateInitializationProcessToken(object_s *oo, states_e &s, to
 	}
 	else if (StrEq(tt->str, ";"))
 	{
-		// End of array definition
-		throw "TODO";
-
-		if (array_nesting_level == 0)
+		if (array_data_nesting_level == 0)
 		{
-
+			// Sentence end token
+			oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, tt);	// Add new expression
+			oo = oo->parent;										// Return to array item
 		}
 		else
 		{
-
+			// Unexpected sentence end
+			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, tt);
+			oo->info = _T StrDup("Unexpected sentence end during array variable initialization");
+			oo = oo->parent;
+			s = STATE_IDLE;
 		}
 	}
 	else
@@ -557,7 +559,7 @@ object_s *cparser::Parse(object_s *oo)
 				}
 				else if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 				{
-					// New unclasiffied identifier
+					// New unclassified identifier
 					s = STATE_DATATYPE;
 					oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, NULL);
 
@@ -573,14 +575,16 @@ object_s *cparser::Parse(object_s *oo)
 			{
 				if (StrEq(tt.str, "include"))
 				{
-					s = STATE_INCLUDE;
-					oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
+					s = STATE_INCLUDE_FILENAME;
+					oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &tt);	// Add include to preprocessor
+					oo = oo->parent;									// Return to preprocessor
 					flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 				}
 				else if (StrStr(tt.str, "define") == tt.str)
 				{
-					s = STATE_DEFINE;
-					oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
+					s = STATE_DEFINE_IDENTIFIER;
+					oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);	// Add define to preprocessor object
+					oo = oo->parent;									// Return to preprocessor
 					flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 				}
 				else if (StrEq(tt.str, "pragma"))
@@ -596,38 +600,31 @@ object_s *cparser::Parse(object_s *oo)
 					s = STATE_IDLE;
 				}
 			}
-			else if (s == STATE_INCLUDE)
+			else if (s == STATE_INCLUDE_FILENAME)
 			{
 				s = STATE_IDLE;
-
-				// Add include filename
-				oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &tt);
-				oo = oo->parent;	// Return from include filename
-				oo = oo->parent;	// Return from include word
-				oo = oo->parent; 	// Return from preprocessor directive
-			}
-			else if (s == STATE_DEFINE)
-			{
-				s = STATE_DEFINE_IDENTIFIER;
-
-				// Add define literal
-				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
-				flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+				oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE_FILENAME, &tt);		// Add include filename
+				oo = oo->parent;												// Return to preprocessor
+				oo = oo->parent; 												// Return to preprocessor parent
 			}
 			else if (s == STATE_DEFINE_IDENTIFIER)
 			{
+				s = STATE_DEFINE_LITERAL;
+				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &tt);	// Add define identifier
+				oo = oo->parent;												// Return to preprocessor
+				flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+			}
+			else if (s == STATE_DEFINE_LITERAL)
+			{
 				s = STATE_IDLE;
 
 				// Add define literal
-				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &tt);
-				oo = oo->parent;	// Return from define identifier
-				oo = oo->parent;	// Return from define
-				oo = oo->parent;	// Return from define literal
-				oo = oo->parent; 	// Return from preprocessor directive
+				oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_EXPRESSION, &tt);	// Add define expression
+				oo = oo->parent;												// Return to preprocessor
+				oo = oo->parent;												// Return to preprocessor parent
 			}
 			else if (s == STATE_DATATYPE)
 			{
-				// Add token to datatype declaration or definition
 				oo = StateDatatypeProcessToken(oo, s, &tt);
 			}
 			else if (s == STATE_IDENTIFIER)
@@ -637,6 +634,10 @@ object_s *cparser::Parse(object_s *oo)
 			else if (s == STATE_ARRAY_DEFINITION)
 			{
 				oo = StateArrayDefinitionProcessToken(oo, s, &tt);
+			}
+			else if (s == STATE_INITIALIZATION)
+			{
+				oo = StateInitializationProcessToken(oo, s, &tt);
 			}
 			else
 			{
