@@ -25,8 +25,8 @@ struct pair
 struct dictionary
 {
 	pair **pairs;
-	uint32_t pairs_size;
-	uint32_t pairs_count;
+	int32_t pairs_size;
+	int32_t pairs_count;
 };
 
 dictionary * DictionaryInit(void)
@@ -40,17 +40,19 @@ dictionary * DictionaryInit(void)
 	return d;
 }
 
-static int DictionaryKeyCompare(const void * ka, const void *kb)
+static int DictionaryKeyCompare(const void * ka, const void * kb)
 {
-	pair *kka = (pair *)ka;
-	pair *kkb = (pair *)kb;
+	pair *kka = *(pair **)ka;
+	pair *kkb = *(pair **)kb;
 
 	return strcmp(_t kka->key, _t kkb->key);
 }
 
 void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
 {
-	pair *p = (pair *) bsearch(key, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
+	pair pp = { key, NULL };
+	pair *ppp = &pp;
+	pair *p = (pair *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
 	if (!p) return;
 
 	uint32_t ix = &p - d->pairs;	// Keys are disposed in a linear array
@@ -62,7 +64,9 @@ void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
 
 void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 {
-	pair *p = (pair *) bsearch(key, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
+	pair pp = { key, NULL };
+	pair *ppp = &pp;
+	pair *p = (pair *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
 
 	// Add pair if no key found
 	if (!p)
@@ -84,28 +88,29 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 		}
 
 		// Create a new pair
-		pair *p = new pair;
+		p = new pair;
 		p->key = StrDup(key);
 
 		// Binary search the place to insert in the array
-		uint32_t delta = d->pairs_count >> 1;
-		uint32_t ix = d->pairs_count -= delta;
+		int32_t delta = (d->pairs_count + 1) >> 1;
+		int32_t ix = d->pairs_count >> 1;
 		while (delta)
 		{
-			delta >>= 1;
-			if (DictionaryKeyCompare(p, d->pairs[ix]) < 0)
-				ix -= delta;
+			if (strcmp(_t p->key, _t d->pairs[ix]->key) < 0)
+				ix -= delta - 1;
 			else
 				ix += delta;
+
+			delta = delta >> 1;
 		}
 
 		// Move forward all pointers
-		for (uint32_t i = d->pairs_count; i >= ix; i--)
+		for (int32_t i = d->pairs_count - 1; i >= ix; i--)
 			d->pairs[i + 1] = d->pairs[i];
-		d->pairs_count++;
 
-		// Insert the new pair
+		// Insert the new pair and increase pairs count
 		d->pairs[ix] = p;
+		d->pairs_count++;
 	}
 
 	// Update / set pair value
@@ -114,7 +119,9 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 
 const void * DictionaryGetKeyValue(dictionary *d, const uint8_t *key)
 {
-	pair *p = (pair *) bsearch(key, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
+	pair pp = { key, NULL };
+	pair *ppp = &pp;
+	pair *p = (pair *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
 
 	return p ? p->value : NULL;
 }

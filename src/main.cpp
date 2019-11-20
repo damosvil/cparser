@@ -12,6 +12,7 @@
 #include <cparserpaths.h>
 #include <cparsertoken.h>
 #include <cparserobject.h>
+#include <cparserdictionary.h>
 #include <cparser.h>
 
 
@@ -19,6 +20,14 @@ using namespace cparser;
 
 int main()
 {
+	dictionary *dd = DictionaryInit();
+	DictionarySetKeyValue(dd, _T "cparsertools.h", NULL);
+	DictionarySetKeyValue(dd, _T "cparserpaths.h", NULL);
+	DictionarySetKeyValue(dd, _T "cparsertoken.h", NULL);
+	DictionarySetKeyValue(dd, _T "cparserobject.h", NULL);
+	DictionarySetKeyValue(dd, _T "cparserdictionary.h", NULL);
+	DictionarySetKeyValue(dd, _T "cparser.h", NULL);
+
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");
 	cpaths->AddPath(_T "./src/");
