@@ -53,7 +53,7 @@ void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
 	pair *p = (pair *) bsearch(key, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
 	if (!p) return;
 
-	uint32_t ix = &p - d->pairs;	// Keys are disposed in a vector
+	uint32_t ix = &p - d->pairs;	// Keys are disposed in a linear array
 
 	// Decrease pairs, and bulk back copy all remaining pointers
 	d->pairs_count--;
@@ -67,7 +67,7 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 	// Add pair if no key found
 	if (!p)
 	{
-		// Increase pairs size
+		// Increase pairs size if pairs array is full
 		if (d->pairs_count == d->pairs_size)
 		{
 			// Create new size and array
@@ -75,7 +75,7 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 			pair **pp = new pair *[ss];
 
 			// Copy old data into new array and delete old data
-			memcpy(pp, d->pairs, d->pairs_count);
+			memcpy(pp, d->pairs, sizeof(pair *) * d->pairs_count);
 			delete d->pairs;
 
 			// Update dictionary pairs and size
@@ -83,16 +83,32 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 			d->pairs_size = ss;
 		}
 
-		// Create and add new pair
+		// Create a new pair
 		pair *p = new pair;
 		p->key = StrDup(key);
-		d->pairs[d->pairs_count++] = p;
 
-		// Sort the whole thing
-		qsort(d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
+		// Binary search the place to insert in the array
+		uint32_t delta = d->pairs_count >> 1;
+		uint32_t ix = d->pairs_count -= delta;
+		while (delta)
+		{
+			delta >>= 1;
+			if (DictionaryKeyCompare(p, d->pairs[ix]) < 0)
+				ix -= delta;
+			else
+				ix += delta;
+		}
+
+		// Move forward all pointers
+		for (uint32_t i = d->pairs_count; i >= ix; i--)
+			d->pairs[i + 1] = d->pairs[i];
+		d->pairs_count++;
+
+		// Insert the new pair
+		d->pairs[ix] = p;
 	}
 
-	// Update pair value
+	// Update / set pair value
 	p->value = value;
 }
 
