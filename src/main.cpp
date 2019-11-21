@@ -27,6 +27,15 @@ int main()
 	DictionarySetKeyValue(dd, _T "cparserobject.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparserdictionary.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparser.h", NULL);
+	DictionarySetKeyValue(dd, _T "1.h", NULL);
+	DictionarySetKeyValue(dd, _T "2.h", NULL);
+	DictionarySetKeyValue(dd, _T "3.h", NULL);
+	DictionarySetKeyValue(dd, _T "4.h", NULL);
+	DictionarySetKeyValue(dd, _T "5.h", NULL);
+	DictionarySetKeyValue(dd, _T "6.h", NULL);
+	DictionarySetKeyValue(dd, _T "0.h", NULL);
+	DictionarySetKeyValue(dd, _T "a.h", NULL);
+	DictionarySetKeyValue(dd, _T "z.h", NULL);
 
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");

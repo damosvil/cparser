@@ -29,6 +29,14 @@ struct dictionary
 	int32_t pairs_count;
 };
 
+static int DictionaryKeyCompare(const void * ka, const void * kb)
+{
+	pair *kka = *(pair **)ka;
+	pair *kkb = *(pair **)kb;
+
+	return strcmp(_t kka->key, _t kkb->key);
+}
+
 dictionary * DictionaryInit(void)
 {
 	dictionary *d = new dictionary;
@@ -38,14 +46,6 @@ dictionary * DictionaryInit(void)
 	d->pairs_count = 0;
 
 	return d;
-}
-
-static int DictionaryKeyCompare(const void * ka, const void * kb)
-{
-	pair *kka = *(pair **)ka;
-	pair *kkb = *(pair **)kb;
-
-	return strcmp(_t kka->key, _t kkb->key);
 }
 
 void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
@@ -64,6 +64,7 @@ void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
 
 void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 {
+	int ix = 0;
 	pair pp = { key, NULL };
 	pair *ppp = &pp;
 	pair *p = (pair *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair *), DictionaryKeyCompare);
@@ -91,22 +92,12 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 		p = new pair;
 		p->key = StrDup(key);
 
-		// Binary search the place to insert in the array
-		int32_t delta = (d->pairs_count + 1) >> 1;
-		int32_t ix = d->pairs_count >> 1;
-		while (delta)
-		{
-			if (strcmp(_t p->key, _t d->pairs[ix]->key) < 0)
-				ix -= delta - 1;
-			else
-				ix += delta;
-
-			delta = delta >> 1;
-		}
-
 		// Move forward all pointers
-		for (int32_t i = d->pairs_count - 1; i >= ix; i--)
-			d->pairs[i + 1] = d->pairs[i];
+		if (d->pairs_count > 0)
+		{
+			for (ix = d->pairs_count; ix > 0 && strcmp(_t key, _t d->pairs[ix - 1]->key) < 0; ix--)
+				d->pairs[ix] = d->pairs[ix - 1];
+		}
 
 		// Insert the new pair and increase pairs count
 		d->pairs[ix] = p;
