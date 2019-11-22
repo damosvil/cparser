@@ -15,7 +15,7 @@ namespace cparser
 struct dictionary;
 
 
-dictionary * DictionaryInit(void);
+dictionary * DictionaryNew(void);
 void DictionaryRemoveKey(dictionary *d, const uint8_t *key);
 void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value);
 const void * DictionaryGetKeyValue(dictionary *d, const uint8_t *key);

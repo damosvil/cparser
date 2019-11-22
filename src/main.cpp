@@ -20,7 +20,7 @@ using namespace cparser;
 
 int main()
 {
-	dictionary *dd = DictionaryInit();
+	dictionary *dd = DictionaryNew();
 	DictionarySetKeyValue(dd, _T "cparsertools.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparserpaths.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparsertoken.h", NULL);
@@ -36,6 +36,7 @@ int main()
 	DictionarySetKeyValue(dd, _T "0.h", NULL);
 	DictionarySetKeyValue(dd, _T "a.h", NULL);
 	DictionarySetKeyValue(dd, _T "z.h", NULL);
+	DictionaryDelete(dd);
 
 	cparser_paths *cpaths = new cparser_paths();
 	cpaths->AddPath(_T "/usr/include");

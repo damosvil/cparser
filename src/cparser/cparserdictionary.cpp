@@ -37,7 +37,7 @@ static int DictionaryKeyCompare(const void * ka, const void * kb)
 	return strcmp(_t kka->key, _t kkb->key);
 }
 
-dictionary * DictionaryInit(void)
+dictionary * DictionaryNew(void)
 {
 	dictionary *d = new dictionary;
 
@@ -92,11 +92,34 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 		p = new pair;
 		p->key = StrDup(key);
 
-		// Move forward all pointers
+		// Look for insert index
 		if (d->pairs_count > 0)
 		{
-			for (ix = d->pairs_count; ix > 0 && strcmp(_t key, _t d->pairs[ix - 1]->key) < 0; ix--)
-				d->pairs[ix] = d->pairs[ix - 1];
+			ix = d->pairs_count / 2;
+			int32_t delta = ix / 2;
+
+			// Stride over pairs
+			while (delta)
+			{
+				if (strcmp(_t key, _t d->pairs[ix]->key) < 0)
+					ix -= delta;
+				else
+					ix += delta;
+
+				delta /= 2;
+			}
+
+			// Step over pairs
+			while (ix > 0 && strcmp(_t key, _t d->pairs[ix - 1]->key) < 0)
+				ix--;
+
+			// Step over pairs
+			while (ix < d->pairs_count && strcmp(_t key, _t d->pairs[ix]->key) > 0)
+				ix++;
+
+			// Move forward all pointers
+			for (int i = d->pairs_count; i > ix; i--)
+				d->pairs[i] = d->pairs[i - 1];
 		}
 
 		// Insert the new pair and increase pairs count
