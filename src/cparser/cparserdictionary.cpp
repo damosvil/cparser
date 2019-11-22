@@ -22,7 +22,7 @@ struct pair
 	const void *value;
 };
 
-struct dictionary
+struct dictionary_s
 {
 	pair **pairs;
 	int32_t pairs_size;
@@ -37,9 +37,9 @@ static int DictionaryKeyCompare(const void * ka, const void * kb)
 	return strcmp(_t kka->key, _t kkb->key);
 }
 
-dictionary * DictionaryNew(void)
+dictionary_s * DictionaryNew(void)
 {
-	dictionary *d = new dictionary;
+	dictionary_s *d = new dictionary_s;
 
 	d->pairs = NULL;
 	d->pairs_size = 0;
@@ -48,7 +48,7 @@ dictionary * DictionaryNew(void)
 	return d;
 }
 
-void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
+void DictionaryRemoveKey(dictionary_s *d, const uint8_t *key)
 {
 	pair pp = { key, NULL };
 	pair *ppp = &pp;
@@ -62,7 +62,7 @@ void DictionaryRemoveKey(dictionary *d, const uint8_t *key)
 	memcpy(d->pairs + ix, d->pairs + ix + 1, d->pairs_count - ix);
 }
 
-void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
+void DictionarySetKeyValue(dictionary_s *d, const uint8_t *key, const void *value)
 {
 	int ix = 0;
 	pair pp = { key, NULL };
@@ -131,7 +131,7 @@ void DictionarySetKeyValue(dictionary *d, const uint8_t *key, const void *value)
 	p->value = value;
 }
 
-const void * DictionaryGetKeyValue(dictionary *d, const uint8_t *key)
+const void * DictionaryGetKeyValue(dictionary_s *d, const uint8_t *key)
 {
 	pair pp = { key, NULL };
 	pair *ppp = &pp;
@@ -140,12 +140,12 @@ const void * DictionaryGetKeyValue(dictionary *d, const uint8_t *key)
 	return p ? p->value : NULL;
 }
 
-uint32_t DictionaryGetKeyCount(dictionary *d)
+uint32_t DictionaryGetKeyCount(dictionary_s *d)
 {
 	return d->pairs_count;
 }
 
-const uint8_t * DictionaryGetKeyByIndex(dictionary *d, uint32_t ix)
+const uint8_t * DictionaryGetKeyByIndex(dictionary_s *d, uint32_t ix)
 {
 	if (ix >= d->pairs_count)
 		return NULL;
@@ -153,7 +153,7 @@ const uint8_t * DictionaryGetKeyByIndex(dictionary *d, uint32_t ix)
 	return d->pairs[ix]->key;
 }
 
-const void * DictionaryGetValueByIndex(dictionary *d, uint32_t ix)
+const void * DictionaryGetValueByIndex(dictionary_s *d, uint32_t ix)
 {
 	if (ix >= d->pairs_count)
 		return NULL;
@@ -161,7 +161,7 @@ const void * DictionaryGetValueByIndex(dictionary *d, uint32_t ix)
 	return d->pairs[ix]->value;
 }
 
-void DictionaryDelete(dictionary *d)
+void DictionaryDelete(dictionary_s *d)
 {
 	// Delete keys and pairs
 	while (d->pairs_count--)

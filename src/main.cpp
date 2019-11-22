@@ -20,7 +20,7 @@ using namespace cparser;
 
 int main()
 {
-	dictionary *dd = DictionaryNew();
+	dictionary_s *dd = DictionaryNew();
 	DictionarySetKeyValue(dd, _T "cparsertools.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparserpaths.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparsertoken.h", NULL);
