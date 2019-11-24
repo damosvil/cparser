@@ -9,11 +9,8 @@
 #define CPARSER_CPARSEROBJECT_H_
 
 
-namespace cparser {
-
-
 // Parse object type
-enum object_type_e
+typedef enum object_type_e
 {
 	OBJECT_TYPE_C_COMMENT = 0,
 	OBJECT_TYPE_CPP_COMMENT,
@@ -61,14 +58,14 @@ enum object_type_e
 	OBJECT_TYPE_ENUM,
 	OBJECT_TYPE_STRUCT,
 	OBJECT_TYPE_TEMPORAL
-};
+} object_type_t;
 
 // Parse object
-struct object_s
+typedef struct object_s
 {
-	object_type_e type;
-	object_s *parent;
-	object_s **children;
+	object_type_t type;
+	struct object_s *parent;
+	struct object_s **children;
 	uint32_t children_size;
 	uint32_t children_count;
 
@@ -76,14 +73,13 @@ struct object_s
 	uint32_t column;
 	uint8_t * data;
 	uint8_t * info;
-};
+} object_t;
 
 
-object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token);
-object_s *ObjectGetChildByType(object_s *parent, object_type_e type);
-object_s *ObjectGetLastChild(object_s *parent, object_type_e type);
+object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token);
+object_t *ObjectGetChildByType(object_t *parent, object_type_t type);
+object_t *ObjectGetLastChild(object_t *parent, object_type_t type);
+object_t *ObjectGetParent(object_t *o);
 
-
-} /* namespace cparser */
 
 #endif /* CPARSER_CPARSEROBJECT_H_ */

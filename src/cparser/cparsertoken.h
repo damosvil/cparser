@@ -8,14 +8,14 @@
 #ifndef CPARSERTOKEN_H_
 #define CPARSERTOKEN_H_
 
-namespace cparser {
 
 #define CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME		1
 #define CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL			2
 #define CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER		4
 
+
 // Token type
-enum token_type_e
+typedef enum token_type_e
 {
 	CPARSER_TOKEN_TYPE_SINGLE_CHAR = 0,
 	CPARSER_TOKEN_TYPE_IDENTIFIER,
@@ -28,19 +28,18 @@ enum token_type_e
 	CPARSER_TOKEN_TYPE_C_COMMENT,
 	CPARSER_TOKEN_TYPE_CPP_COMMENT,
 	CPARSER_TOKEN_TYPE_INVALID,
-};
+} token_type_t;
 
 // Parse token
-struct token_s
+typedef struct token_s
 {
-	token_type_e type;
+	token_type_t type;
 	uint32_t row;
 	uint32_t column;
 	uint8_t str[MAX_SENTENCE_LENGTH + 1];
-};
+} token_t;
 
-bool TokenNext(FILE *f, token_s *tt, uint32_t flags);
+bool TokenNext(FILE *f, token_t *tt, uint32_t flags);
 
-} /* namespace cparser */
 
 #endif /* CPARSERTOKEN_H_ */

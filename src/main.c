@@ -7,6 +7,7 @@
 //============================================================================
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <cparsertools.h>
 #include <cparserpaths.h>
@@ -16,11 +17,9 @@
 #include <cparser.h>
 
 
-using namespace cparser;
-
 int main()
 {
-	dictionary_s *dd = DictionaryNew();
+	dictionary_t *dd = DictionaryNew();
 	DictionarySetKeyValue(dd, _T "cparsertools.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparserpaths.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparsertoken.h", NULL);
@@ -38,14 +37,12 @@ int main()
 	DictionarySetKeyValue(dd, _T "z.h", NULL);
 	DictionaryDelete(dd);
 
-	cparser_paths *cpaths = new cparser_paths();
-	cpaths->AddPath(_T "/usr/include");
-	cpaths->AddPath(_T "./src/");
-	cpaths->AddPath(_T "./src/cparser");
+	cparserpaths_t *cpaths = CParserPathsNew();
+	CParserPathsAddPath(cpaths,_T "/usr/include");
+	CParserPathsAddPath(cpaths,_T "./src/");
+	CParserPathsAddPath(cpaths,_T "./src/cparser");
 
-	cparser::cparser cp(cpaths, _T"project_examples/opengl/main.c");
-
-	object_s *oo = cp.Parse(NULL);
+	object_t *oo = Parse((const cparserpaths_t *)cpaths, _T"project_examples/opengl/main.c");
 
 	printf("Fin.\r\n");
 

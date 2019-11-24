@@ -9,25 +9,7 @@
 #define CPARSER_H_
 
 
-namespace cparser {
+object_t *Parse(const cparserpaths_t *paths, const uint8_t *filename);
 
-class cparser_block;
-
-class cparser {
-
-private:
-	// Parsing states
-	const cparser_paths *paths;
-	const uint8_t *filename;
-
-public:
-	cparser(const cparser_paths *paths, const uint8_t *filename);
-	virtual ~cparser();
-
-	object_s *Parse(object_s *current_object);
-
-};
-
-} /* namespace cparser */
 
 #endif /* CPARSER_H_ */

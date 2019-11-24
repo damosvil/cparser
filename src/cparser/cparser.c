@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include "cparserpaths.h"
 #include "cparsertools.h"
@@ -32,11 +33,8 @@
 
 
 
-namespace cparser
-{
 
-
-enum states_e
+typedef enum states_e
 {
 	STATE_IDLE,
 	STATE_PREPROCESSOR,
@@ -51,16 +49,16 @@ enum states_e
 	STATE_FUNCTION_PARAMETERS,
 	STATE_FUNCTION_DECLARED,
 	STATE_ERROR
-};
+} states_t;
 
 // Parsing state
 typedef struct state_s
 {
 	FILE *file;
-	states_e state;
-	dictionary_s *dictionary;
+	states_t state;
+	dictionary_t *dictionary;
 	uint32_t tokenizer_flags;
-	token_s token;
+	token_t token;
 } state_t;
 
 enum eflags_e
@@ -83,29 +81,7 @@ enum eflags_e
 };
 
 
-cparser::cparser(const cparser_paths *paths, const uint8_t *filename)
-{
-	if (!paths)
-		throw "cparser incorrect input parameter: paths";
-
-	if (!filename)
-		throw "cparser incorrect input parameter: filename";
-
-	if (!IsCSourceFilename(filename) && !IsCHeaderFilename(filename))
-		throw "cparser filename is neither C header file nor C source file";
-
-	// Keep a copy of paths and filename
-	this->paths = new cparser_paths(paths);
-	this->filename = StrDup(filename);
-}
-
-cparser::~cparser()
-{
-	delete paths;
-	delete filename;
-}
-
-static object_s * DigestDataType(object_s *oo, state_s *s)
+static object_t * DigestDataType(object_t *oo, state_t *s)
 {
 	static uint32_t eflags = EFLAGS_NONE;
 
@@ -116,14 +92,14 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 	}
 
 	// Compose datatype
-	if (StrEq(s->token.str, "static") || StrEq(s->token.str, "extern") || StrEq(s->token.str, "auto") ||
-			StrEq(s->token.str, "register") || StrEq(s->token.str, "typedef"))
+	if (StrEq(_t s->token.str, "static") || StrEq(_t s->token.str, "extern") || StrEq(_t s->token.str, "auto") ||
+			StrEq(_t s->token.str, "register") || StrEq(_t s->token.str, "typedef"))
 	{
 		// Check specifiers
 		if (eflags & EFLAGS_SPECIFIER)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Specifier already defined");
+			oo->info = _T strdup("Specifier already defined");
 		}
 		else
 		{
@@ -131,13 +107,13 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 			oo = ObjectAddChild(oo, OBJECT_TYPE_SPECIFIER, &s->token);
 		}
 	}
-	else if (StrEq(s->token.str, "const") || StrEq(s->token.str, "volatile"))
+	else if (StrEq(_t s->token.str, "const") || StrEq(_t s->token.str, "volatile"))
 	{
 		// Check qualifiers
 		if (eflags & EFLAGS_QUALIFIER)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Qualifier already defined");
+			oo->info = _T strdup("Qualifier already defined");
 		}
 		else
 		{
@@ -145,7 +121,7 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 			oo = ObjectAddChild(oo, OBJECT_TYPE_QUALIFIER, &s->token);
 		}
 	}
-	else if (StrEq(s->token.str, "signed") || StrEq(s->token.str, "unsigned") || StrEq(s->token.str, "short") || StrEq(s->token.str, "long"))
+	else if (StrEq(_t s->token.str, "signed") || StrEq(_t s->token.str, "unsigned") || StrEq(_t s->token.str, "short") || StrEq(_t s->token.str, "long"))
 	{
 		// Check modifiers
 		uint32_t newf = 0;
@@ -169,45 +145,45 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 			else
 			{
 				oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-				oo->info = _T StrDup("Cannot apply the same modifier twice");
+				oo->info = _T strdup("Cannot apply the same modifier twice");
 			}
 		}
 		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply modifiers to user defined datatypes");
+			oo->info = _T strdup("Cannot apply modifiers to user defined datatypes");
 		}
 		else if ((eflags & EFLAGS_VOID) && newf)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply modifiers to void datatype");
+			oo->info = _T strdup("Cannot apply modifiers to void datatype");
 		}
 		else if ((eflags & EFLAGS_CHAR) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply modifier short nor long to char datatype");
+			oo->info = _T strdup("Cannot apply modifier short nor long to char datatype");
 		}
 		else if ((eflags & EFLAGS_FLOAT) && newf)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply modifiers to float datatype");
+			oo->info = _T strdup("Cannot apply modifiers to float datatype");
 		}
 		else if ((eflags & EFLAGS_DOUBLE) && (newf & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SIGNED)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply modifiers short, unsigned not signed to double datatype");
+			oo->info = _T strdup("Cannot apply modifiers short, unsigned not signed to double datatype");
 		}
 		else if (((eflags & EFLAGS_MODIFIER_UNSIGNED) && (newf & EFLAGS_MODIFIER_SIGNED)) ||
 				((eflags & EFLAGS_MODIFIER_SIGNED) && (newf & EFLAGS_MODIFIER_UNSIGNED)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply signed and unsigned modifiers at the same time");
+			oo->info = _T strdup("Cannot apply signed and unsigned modifiers at the same time");
 		}
 		else if (((eflags & EFLAGS_MODIFIER_LONG) && (newf & EFLAGS_MODIFIER_SHORT)) ||
 				((eflags & EFLAGS_MODIFIER_SHORT) && (newf & EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot apply long and short modifiers at the same time");
+			oo->info = _T strdup("Cannot apply long and short modifiers at the same time");
 		}
 		else
 		{
@@ -215,7 +191,7 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 			oo = ObjectAddChild(oo, OBJECT_TYPE_MODIFIER, &s->token);
 		}
 	}
-	else if (StrEq(s->token.str, "void") || StrEq(s->token.str, "char") || StrEq(s->token.str, "int") || StrEq(s->token.str, "float") || StrEq(s->token.str, "double"))
+	else if (StrEq(_t s->token.str, "void") || StrEq(_t s->token.str, "char") || StrEq(_t s->token.str, "int") || StrEq(_t s->token.str, "float") || StrEq(_t s->token.str, "double"))
 	{
 		// Check basic built in datatype
 		uint32_t newf = 0;
@@ -233,32 +209,32 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 		if (eflags & newf)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify the same basic built in datatype twice");
+			oo->info = _T strdup("Cannot specify the same basic built in datatype twice");
 		}
 		else if (eflags & EFLAGS_USER_DEFINED_DATATYPE)
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify a basic built in datatype when it is already defined a used defined datatype");
+			oo->info = _T strdup("Cannot specify a basic built in datatype when it is already defined a used defined datatype");
 		}
 		else if ((newf & EFLAGS_VOID) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify modifiers to void datatype");
+			oo->info = _T strdup("Cannot specify modifiers to void datatype");
 		}
 		else if ((newf & EFLAGS_CHAR) && (eflags & (EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify short nor long modifiers to char datatype");
+			oo->info = _T strdup("Cannot specify short nor long modifiers to char datatype");
 		}
 		else if ((newf & EFLAGS_FLOAT) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT | EFLAGS_MODIFIER_LONG)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify modifiers to float datatype");
+			oo->info = _T strdup("Cannot specify modifiers to float datatype");
 		}
 		else if ((newf & EFLAGS_DOUBLE) && (eflags & (EFLAGS_MODIFIER_SIGNED | EFLAGS_MODIFIER_UNSIGNED | EFLAGS_MODIFIER_SHORT)))
 		{
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Cannot specify signed, unsigned nor short modifiers to double datatype");
+			oo->info = _T strdup("Cannot specify signed, unsigned nor short modifiers to double datatype");
 		}
 		else
 		{
@@ -266,7 +242,7 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 			oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE_PRIMITIVE, &s->token);
 		}
 	}
-	else if (StrEq(s->token.str, "union") || StrEq(s->token.str, "enum") || StrEq(s->token.str, "struct"))
+	else if (StrEq(_t s->token.str, "union") || StrEq(_t s->token.str, "enum") || StrEq(_t s->token.str, "struct"))
 	{
 		// Possible datatype definition, variable definition, function definition
 		eflags |= ~EFLAGS_COMPOSED_DATATYPE;
@@ -280,16 +256,16 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 		else
 			oo = ObjectAddChild(oo, OBJECT_TYPE_STRUCT, &s->token);
 	}
-	else if (StrEq(s->token.str, "*"))
+	else if (StrEq(_t s->token.str, "*"))
 	{
 		// Remove qualifier restriction and add pointer
 		eflags &= ~EFLAGS_QUALIFIER;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_POINTER, &s->token);
 	}
-	else if (StrEq(s->token.str, "{"))
+	else if (StrEq(_t s->token.str, "{"))
 	{
 		// Datatype embedded definition
-		throw "TODO";
+		asm( "int $3" ); // TODO: breakpoint
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
@@ -297,7 +273,7 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 		if (eflags & DATATYPE_DEFINED_FLAGS)
 		{
 			// Identifier, so end datatype and add an identifier to parent
-			oo = oo->parent;
+			oo = ObjectGetParent(oo);
 			oo = ObjectAddChild(oo, OBJECT_TYPE_IDENTIFIER, &s->token);
 		}
 		else
@@ -311,13 +287,13 @@ static object_s * DigestDataType(object_s *oo, state_s *s)
 	{
 		// Unexpected token
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T StrDup("Unexpected token");
+		oo->info = _T strdup("Unexpected token");
 	}
 
 	return oo;
 }
 
-static object_s * ProcessStateDatatype(object_s *oo, state_s *s)
+static object_t * ProcessStateDatatype(object_t *oo, state_t *s)
 {
 	// Digest the datatype
 	oo = DigestDataType(oo, s);
@@ -329,12 +305,12 @@ static object_s * ProcessStateDatatype(object_s *oo, state_s *s)
 		s->state = STATE_ERROR;
 
 	// Return to parent
-	oo = oo->parent;
+	oo = ObjectGetParent(oo);
 
 	return oo;
 }
 
-static object_s * ProcessStateIdle(object_s *oo, state_s *s)
+static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 {
 	if (s->token.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR)
 	{
@@ -345,7 +321,7 @@ static object_s * ProcessStateIdle(object_s *oo, state_s *s)
 		}
 		else
 		{
-			throw "TODO";
+			asm( "int $3" ); // TODO: breakpoint
 		}
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
@@ -360,29 +336,29 @@ static object_s * ProcessStateIdle(object_s *oo, state_s *s)
 	}
 	else
 	{
-		throw "TODO";
+		asm( "int $3" ); // TODO: breakpoint
 	}
 
 	return oo;
 }
 
-static object_s * ProcessStatePreprocessor(object_s *oo, state_s *s)
+static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 {
-	if (StrEq(s->token.str, "include"))
+	if (StrEq(_t s->token.str, "include"))
 	{
 		s->state = STATE_INCLUDE_FILENAME;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
-		oo = oo->parent;									// Return to preprocessor
+		oo = ObjectGetParent(oo);									// Return to preprocessor
 		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 	}
-	else if (StrEq(s->token.str, "define"))
+	else if (StrEq(_t s->token.str, "define"))
 	{
 		s->state = STATE_DEFINE_IDENTIFIER;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
-		oo = oo->parent;									// Return to preprocessor
+		oo = ObjectGetParent(oo);									// Return to preprocessor
 		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 	}
-	else if (StrEq(s->token.str, "pragma"))
+	else if (StrEq(_t s->token.str, "pragma"))
 	{
 		s->state = STATE_PRAGMA;
 	}
@@ -390,101 +366,101 @@ static object_s * ProcessStatePreprocessor(object_s *oo, state_s *s)
 	{
 		// Unexpected token
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T StrDup("Unexpected preprocessor directive");
-		oo = oo->parent;
+		oo->info = _T strdup("Unexpected preprocessor directive");
+		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
 
 	return oo;
 }
 
-static object_s * ProcessStateIncludeFilename(object_s *oo, state_s *s)
+static object_t * ProcessStateIncludeFilename(object_t *oo, state_t *s)
 {
 	s->state = STATE_IDLE;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE_FILENAME, &s->token);		// Add include filename
-	oo = oo->parent;												// Return to preprocessor
-	oo = oo->parent; 												// Return to preprocessor parent
+	oo = ObjectGetParent(oo);												// Return to preprocessor
+	oo = ObjectGetParent(oo); 												// Return to preprocessor parent
 
 	return oo;
 }
 
-static object_s * ProcessStateDefineIdentifier(object_s *oo, state_s *s)
+static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 {
 	s->state = STATE_DEFINE_LITERAL;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);	// Add define identifier
-	oo = oo->parent;												// Return to preprocessor
+	oo = ObjectGetParent(oo);												// Return to preprocessor
 	s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
 
 	return oo;
 }
 
-static object_s * ProcessStateDefineLiteral(object_s *oo, state_s *s)
+static object_t * ProcessStateDefineLiteral(object_t *oo, state_t *s)
 {
 	s->state = STATE_IDLE;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_EXPRESSION, &s->token);	// Add define expression
-	oo = oo->parent;												// Return to preprocessor
-	oo = oo->parent;												// Return to preprocessor parent
+	oo = ObjectGetParent(oo);												// Return to preprocessor
+	oo = ObjectGetParent(oo);												// Return to preprocessor parent
 
 	return oo;
 }
 
-static object_s *ProcessStateIdentifier(object_s *oo, state_s *s)
+static object_t *ProcessStateIdentifier(object_t *oo, state_t *s)
 {
-	if (StrEq(s->token.str, ";"))
+	if (StrEq(_t s->token.str, ";"))
 	{
 		// Sentence end after variable identifier
 		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, &s->token);	// Add sentence end
-		oo = oo->parent;										// Return to variable
-		oo = oo->parent;										// Return to variable parent
+		oo = ObjectGetParent(oo);										// Return to variable
+		oo = ObjectGetParent(oo);										// Return to variable parent
 		s->state = STATE_IDLE;
 	}
-	else if (StrEq(s->token.str, "["))
+	else if (StrEq(_t s->token.str, "["))
 	{
 		// Array variable identifier
 		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DEFINITION, &s->token);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_SQ_BRACKET, &s->token);
-		oo = oo->parent;		// return to array definition
+		oo = ObjectGetParent(oo);		// return to array definition
 		s->state = STATE_ARRAY_DEFINITION;
 	}
-	else if (StrEq(s->token.str, "("))
+	else if (StrEq(_t s->token.str, "("))
 	{
 		// Function identifier
 		oo->type = OBJECT_TYPE_FUNCTION;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_FUNCTION_PARAMETERS, &s->token);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_PARENTHESYS, &s->token);
-		oo = oo->parent;
+		oo = ObjectGetParent(oo);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER, &s->token);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, &s->token);
 		s->state = STATE_FUNCTION_PARAMETERS;
 	}
-	else if (StrEq(s->token.str, "{"))
+	else if (StrEq(_t s->token.str, "{"))
 	{
 		// User defined union, enum or struct identifier
-		throw "TODO";
+		asm( "int $3" ); // TODO: breakpoint
 	}
-	else if (StrEq(s->token.str, "="))
+	else if (StrEq(_t s->token.str, "="))
 	{
 		// Initialization: Initial value assignation
 		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_INITIALIZATION, &s->token);
-		oo = oo->parent;		// return to array definition
+		oo = ObjectGetParent(oo);		// return to array definition
 		s->state = STATE_INITIALIZATION;
 	}
 	else
 	{
 		// Unexpected token after identifier
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T StrDup("Unexpected token after identifier");
-		oo = oo->parent;
+		oo->info = _T strdup("Unexpected token after identifier");
+		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
 
 	return oo;
 }
 
-static object_s *ProcessStateInitialization(object_s *oo, state_s *s)
+static object_t *ProcessStateInitialization(object_t *oo, state_t *s)
 {
 	static int32_t array_data_nesting_level = 0;
 
@@ -493,68 +469,68 @@ static object_s *ProcessStateInitialization(object_s *oo, state_s *s)
 		array_data_nesting_level = 0;
 	}
 
-	if (StrEq(s->token.str, "{"))
+	if (StrEq(_t s->token.str, "{"))
 	{
 		// Array initialization data
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_DATA, &s->token);		// Add new array data
 		oo = ObjectAddChild(oo, OBJECT_TYPE_OPEN_BRACKET, &s->token);		// Add new open bracket to array data
-		oo = oo->parent;											// Return to array data
+		oo = ObjectGetParent(oo);											// Return to array data
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, &s->token);		// Add new array item
 		array_data_nesting_level++;
 	}
-	else if (StrEq(s->token.str, "}"))
+	else if (StrEq(_t s->token.str, "}"))
 	{
 		array_data_nesting_level--;
 
 		if (array_data_nesting_level >= 0)
 		{
-			oo = oo->parent;										// Return to array data
+			oo = ObjectGetParent(oo);										// Return to array data
 			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_BRACKET, &s->token);	// Add close bracket
-			oo = oo->parent;										// Return to array data
-			oo = oo->parent;										// Return to array parent
+			oo = ObjectGetParent(oo);										// Return to array data
+			oo = ObjectGetParent(oo);										// Return to array parent
 		}
 		else
 		{
 			// Unexpected close bracket
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Unexpected close bracket during variable initialization");
-			oo = oo->parent;
+			oo->info = _T strdup("Unexpected close bracket during variable initialization");
+			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
 	}
-	else if (StrEq(s->token.str, ","))
+	else if (StrEq(_t s->token.str, ","))
 	{
 		if (array_data_nesting_level > 0)
 		{
 			// Add new array item
-			oo = oo->parent;										// Return to array data
+			oo = ObjectGetParent(oo);										// Return to array data
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ARRAY_ITEM, &s->token);	// Add new array item
 		}
 		else
 		{
 			// Unexpected , token during initialization
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Unexpected , during variable initialization");
-			oo = oo->parent;
+			oo->info = _T strdup("Unexpected , during variable initialization");
+			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
 	}
-	else if (StrEq(s->token.str, ";"))
+	else if (StrEq(_t s->token.str, ";"))
 	{
 		if (array_data_nesting_level == 0)
 		{
 			// Sentence end token
 			oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, &s->token);	// Add new expression
-			oo = oo->parent;										// Return to variable
-			oo = oo->parent;										// Return to variable parent
+			oo = ObjectGetParent(oo);										// Return to variable
+			oo = ObjectGetParent(oo);										// Return to variable parent
 			s->state = STATE_IDLE;
 		}
 		else
 		{
 			// Unexpected sentence end
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Unexpected sentence end during array variable initialization");
-			oo = oo->parent;
+			oo->info = _T strdup("Unexpected sentence end during array variable initialization");
+			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
 	}
@@ -562,38 +538,38 @@ static object_s *ProcessStateInitialization(object_s *oo, state_s *s)
 	{
 		// Expression -> Add expression tokens
 		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION_TOKEN, &s->token);	// Add new expression
-		oo = oo->parent;											// Return to array item
+		oo = ObjectGetParent(oo);											// Return to array item
 	}
 
 	return oo;
 }
 
-static object_s *ProcessStateArrayDefinition(object_s *oo, state_s *s)
+static object_t *ProcessStateArrayDefinition(object_t *oo, state_t *s)
 {
-	if (StrEq(s->token.str, "["))
+	if (StrEq(_t s->token.str, "["))
 	{
 		// Unexpected open square bracket
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T StrDup("Unexpected open square bracket");
-		oo = oo->parent;
+		oo->info = _T strdup("Unexpected open square bracket");
+		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (StrEq(s->token.str, "]"))
+	else if (StrEq(_t s->token.str, "]"))
 	{
 		if (oo->type == OBJECT_TYPE_ARRAY_DEFINITION)
 		{
 			// Close bracket, so return to identifier state
 			oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_SQ_BRACKET, &s->token);
-			oo = oo->parent;	// return to array definition
-			oo = oo->parent;	// return to array definition parent
+			oo = ObjectGetParent(oo);	// return to array definition
+			oo = ObjectGetParent(oo);	// return to array definition parent
 			s->state = STATE_IDENTIFIER;
 		}
 		else
 		{
 			// Unexpected token after identifier
 			oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-			oo->info = _T StrDup("Unexpected close square bracket");
-			oo = oo->parent;
+			oo->info = _T strdup("Unexpected close square bracket");
+			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
 	}
@@ -601,36 +577,36 @@ static object_s *ProcessStateArrayDefinition(object_s *oo, state_s *s)
 	{
 		// Digest expression token
 		oo = ObjectAddChild(oo, OBJECT_TYPE_EXPRESSION_TOKEN, &s->token);
-		oo = oo->parent;	// return to expression
+		oo = ObjectGetParent(oo);	// return to expression
 	}
 
 	return oo;
 }
 
-static object_s * ProcessStateFunctionParameters(object_s *oo, state_s *s)
+static object_t * ProcessStateFunctionParameters(object_t *oo, state_t *s)
 {
-	if (StrEq(s->token.str, ")"))
+	if (StrEq(_t s->token.str, ")"))
 	{
 		s->state = STATE_FUNCTION_DECLARED;
 
 		// Return to parameter (if no identifier has been parsed)
 		if (oo->type == OBJECT_TYPE_DATATYPE)
-			oo = oo->parent;
+			oo = ObjectGetParent(oo);
 
-		oo = oo->parent;												// Return to function parameters
+		oo = ObjectGetParent(oo);												// Return to function parameters
 		oo = ObjectAddChild(oo, OBJECT_TYPE_CLOSE_PARENTHESYS, &s->token);		// Add parenthesys
-		oo = oo->parent;												// Return to function parameters
-		oo = oo->parent;												// Return to function
+		oo = ObjectGetParent(oo);												// Return to function parameters
+		oo = ObjectGetParent(oo);												// Return to function
 	}
-	else if (StrEq(s->token.str, ","))
+	else if (StrEq(_t s->token.str, ","))
 	{
 		// Return to parameter (if no identifier has been parsed)
 		if (oo->type == OBJECT_TYPE_DATATYPE)
-			oo = oo->parent;
+			oo = ObjectGetParent(oo);
 
-		oo = oo->parent;												// Return to parameter
+		oo = ObjectGetParent(oo);												// Return to parameter
 		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER_SEPARATOR, &s->token);	// Add new parameter definition
-		oo = oo->parent;												// Return to function parameters
+		oo = ObjectGetParent(oo);												// Return to function parameters
 		oo = ObjectAddChild(oo, OBJECT_TYPE_PARAMETER, &s->token);				// Add parameter
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, &s->token);				// Add datatype for next parameter
 	}
@@ -638,7 +614,7 @@ static object_s * ProcessStateFunctionParameters(object_s *oo, state_s *s)
 	{
 		// Digest the datatype
 		oo = DigestDataType(oo, s);
-		oo = oo->parent;
+		oo = ObjectGetParent(oo);
 
 		// Update state
 		if (oo->type == OBJECT_TYPE_ERROR)
@@ -648,37 +624,38 @@ static object_s * ProcessStateFunctionParameters(object_s *oo, state_s *s)
 	return oo;
 }
 
-static object_s * ProcessStateFunctionDeclared(object_s *oo, state_s *s)
+static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 {
-	if (StrEq(s->token.str, ";"))
+	if (StrEq(_t s->token.str, ";"))
 	{
 		// End of function declaration
 		oo->type = OBJECT_TYPE_FUNCTION_DECLARATION;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_SENTENCE_END, &s->token);	// Add sentence end
-		oo = oo->parent;										// Return to function
-		oo = oo->parent;										// Return to function parent
+		oo = ObjectGetParent(oo);										// Return to function
+		oo = ObjectGetParent(oo);										// Return to function parent
 		s->state = STATE_IDLE;
 	}
-	else if (StrEq(s->token.str, "{"))
+	else if (StrEq(_t s->token.str, "{"))
 	{
 		// Beginning of function definition
-		throw "TODO";
+		asm( "int $3" ); // TODO: breakpoint
 	}
 	else
 	{
 		// Unexpected token after functiondeclaration
 		oo = ObjectAddChild(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T StrDup("Unexpected token after function declaration");
-		oo = oo->parent;
+		oo->info = _T strdup("Unexpected token after function declaration");
+		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
 
 	return oo;
 }
 
-object_s *cparser::Parse(object_s *oo)
+object_t *Parse(const cparserpaths_t *paths, const uint8_t *filename)
 {
-	state_s s = { NULL, STATE_IDLE, DictionaryNew(), 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
+	object_t *oo;
+	state_t s = { NULL, STATE_IDLE, DictionaryNew(), 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
 
 	// Open file
 	if (IsCSourceFilename(filename))
@@ -689,20 +666,19 @@ object_s *cparser::Parse(object_s *oo)
 	else
 	{
 		// Open header file
-		s.file = paths->OpenFile(filename, _T "rb");
+		s.file = CParserPathsOpenFile(paths, filename, _T "rb");
 	}
+
+	// Create root parse object
+	oo = ObjectAddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
+	oo->row = 0;
+	oo->column = 0;
+	oo->data = _T strdup(_t filename);
 
 	// Check file exists
 	if (s.file == NULL)
-		throw "cparser::Parse cannot open source file";
-
-	// Create root parse object
-	if (oo == NULL)
 	{
-		oo = ObjectAddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
-		oo->row = 0;
-		oo->column = 0;
-		oo->data = _T StrDup(filename);
+		oo->info = _T strdup("File not found");
 	}
 
 	// Process tokens from file
@@ -717,11 +693,11 @@ object_s *cparser::Parse(object_s *oo)
 		// Process tokens
 		if (s.token.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
 			oo = ObjectAddChild(oo, OBJECT_TYPE_C_COMMENT, &s.token);
-			oo = oo->parent;
+			oo = ObjectGetParent(oo);
 		}
 		else if (s.token.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) {
 			oo = ObjectAddChild(oo, OBJECT_TYPE_CPP_COMMENT, &s.token);
-			oo = oo->parent;
+			oo = ObjectGetParent(oo);
 		}
 		else
 		{
@@ -772,13 +748,10 @@ object_s *cparser::Parse(object_s *oo)
 			}
 			else
 			{
-				throw "TODO";
+				asm( "int $3" ); // TODO: breakpoint
 			}
 		}
 	}
 
 	return oo;
 }
-
-
-} /* namespace cparser */

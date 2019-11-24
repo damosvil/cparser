@@ -6,6 +6,8 @@
  */
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <cparsertools.h>
@@ -13,11 +15,9 @@
 #include <cparserobject.h>
 
 
-namespace cparser {
-
-object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token)
+object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token)
 {
-	object_s *child = new object_s;
+	object_t *child = malloc(sizeof(object_t));
 
 	// Initialize new object
 	child->type = type;
@@ -32,18 +32,18 @@ object_s *ObjectAddChild(object_s *parent, object_type_e type, token_s *token)
 	{
 		child->row = token->row;
 		child->column = token->column;
-		child->data = _T StrDup(token->str);
+		child->data = _T strdup(_t token->str);
 	}
 
 	// Add object to parent if it is not root node
 	if (parent != NULL)
-		AddToPtrArray(child, (void **&)parent->children, parent->children_size, parent->children_count);
+		AddToPtrArray(child, &parent->children, &parent->children_size, &parent->children_count);
 
 	// Return children
 	return child;
 }
 
-object_s *ObjectGetChildByType(object_s *parent, object_type_e type)
+object_t *ObjectGetChildByType(object_t *parent, object_type_t type)
 {
 	for (uint32_t i = 0; i < parent->children_count; i++)
 		if (parent->children[i]->type == type)
@@ -52,7 +52,7 @@ object_s *ObjectGetChildByType(object_s *parent, object_type_e type)
 	return NULL;
 }
 
-object_s *ObjectGetLastChild(object_s *parent, object_type_e type)
+object_t *ObjectGetLastChild(object_t *parent, object_type_t type)
 {
 	if (parent->children_count == 0)
 		return NULL;
@@ -60,5 +60,7 @@ object_s *ObjectGetLastChild(object_s *parent, object_type_e type)
 	return parent->children[parent->children_count - 1];
 }
 
-
-} /* namespace cgl */
+object_t *ObjectGetParent(object_t *o)
+{
+	return o ? o->parent : NULL;
+}
