@@ -19,7 +19,12 @@ const bool StrEq(const char *u, const char *v)
 
 bool IsCHeaderFilename(const uint8_t *filename)
 {
-	uint32_t len = strlen(_t filename);
+	uint32_t len;
+
+	if (!filename)
+		return false;
+
+	len = strlen(_t filename);
 
 	if (len < 3 || filename[len - 2] != '.' || filename[len - 1] != 'h')
 		return false;
@@ -29,7 +34,12 @@ bool IsCHeaderFilename(const uint8_t *filename)
 
 bool IsCSourceFilename(const uint8_t *filename)
 {
-	uint32_t len = strlen(_t filename);
+	uint32_t len;
+
+	if (!filename)
+		return false;
+
+	len = strlen(_t filename);
 
 	if (len < 3 || filename[len - 2] != '.' || filename[len - 1] != 'c')
 		return false;

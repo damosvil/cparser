@@ -34,6 +34,12 @@ object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token)
 		child->column = token->column;
 		child->data = _T strdup(_t token->str);
 	}
+	else
+	{
+		child->row = 0;
+		child->column = 0;
+		child->data = NULL;
+	}
 
 	// Add object to parent if it is not root node
 	if (parent != NULL)

@@ -317,8 +317,8 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 	{
 		if (s->token.str[0] == '#')
 		{
-			s->state = STATE_PREPROCESSOR;
 			oo = ObjectAddChild(oo, OBJECT_TYPE_PREPROCESSOR_DIRECTIVE, &s->token);
+			s->state = STATE_PREPROCESSOR;
 		}
 		else
 		{
@@ -328,9 +328,9 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
 		// New unclassified identifier
-		s->state = STATE_DATATYPE;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_TEMPORAL, NULL);
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DATATYPE, &s->token);
+		s->state = STATE_DATATYPE;
 
 		// Add token to datatype declaration or definition
 		oo = ProcessStateDatatype(oo, s);
@@ -347,16 +347,16 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 {
 	if (StrEq(_t s->token.str, "include"))
 	{
-		s->state = STATE_INCLUDE_FILENAME;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
 		oo = ObjectGetParent(oo);									// Return to preprocessor
+		s->state = STATE_INCLUDE_FILENAME;
 		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 	}
 	else if (StrEq(_t s->token.str, "define"))
 	{
-		s->state = STATE_DEFINE_IDENTIFIER;
 		oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
 		oo = ObjectGetParent(oo);									// Return to preprocessor
+		s->state = STATE_DEFINE_IDENTIFIER;
 		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 	}
 	else if (StrEq(_t s->token.str, "pragma"))
@@ -377,19 +377,26 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 
 static object_t * ProcessStateIncludeFilename(object_t *oo, state_t *s)
 {
-	s->state = STATE_IDLE;
+	uint32_t len = strlen(_t s->token.str);
+	uint8_t *filename = (len < 3) ? NULL : _T strndup(_t s->token.str + 1, len - 2);
+	object_t *nn = CParserParse(s->paths, filename);
+
 	oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE_FILENAME, &s->token);		// Add include filename
 	oo = ObjectGetParent(oo);												// Return to preprocessor
+	oo = ObjectAddChild(oo, OBJECT_TYPE_INCLUDE_OBJECT, NULL);				// Add include object
+	oo->data = (uint8_t *)nn;												// Hang new object on data
+	oo = ObjectGetParent(oo);												// Return to preprocessor
 	oo = ObjectGetParent(oo); 												// Return to preprocessor parent
+	s->state = STATE_IDLE;
 
 	return oo;
 }
 
 static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 {
-	s->state = STATE_DEFINE_LITERAL;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);	// Add define identifier
 	oo = ObjectGetParent(oo);												// Return to preprocessor
+	s->state = STATE_DEFINE_LITERAL;
 	s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
 
 	return oo;
@@ -397,10 +404,10 @@ static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 
 static object_t * ProcessStateDefineLiteral(object_t *oo, state_t *s)
 {
-	s->state = STATE_IDLE;
 	oo = ObjectAddChild(oo, OBJECT_TYPE_DEFINE_EXPRESSION, &s->token);	// Add define expression
 	oo = ObjectGetParent(oo);												// Return to preprocessor
 	oo = ObjectGetParent(oo);												// Return to preprocessor parent
+	s->state = STATE_IDLE;
 
 	return oo;
 }
@@ -658,28 +665,31 @@ object_t *CParserParse(const cparserpaths_t *paths, const uint8_t *filename)
 	object_t *oo;
 	state_t s = { NULL, STATE_IDLE, DictionaryNew(), paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
 
+	// Create root parse object
+	oo = ObjectAddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
+
 	// Open file
 	if (IsCSourceFilename(filename))
 	{
 		// Open source file
-		s.file = fopen(_t filename, "rb");
+		s.file = filename ? fopen(_t filename, "rb") : NULL;
 	}
 	else
 	{
-		// Open header file
-		s.file = CParserPathsOpenFile(paths, filename, _T "rb");
+		// Open as header file
+		s.file = paths ? CParserPathsOpenFile(paths, filename, _T "rb") : NULL;
 	}
-
-	// Create root parse object
-	oo = ObjectAddChild(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
-	oo->row = 0;
-	oo->column = 0;
-	oo->data = _T strdup(_t filename);
 
 	// Check file exists
 	if (s.file == NULL)
 	{
+		oo->type = OBJECT_TYPE_ERROR;
 		oo->info = _T strdup("File not found");
+	}
+	else
+	{
+		// Set object data
+		oo->data = _T strdup(_t filename);
 	}
 
 	// Process tokens from file
