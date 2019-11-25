@@ -44,12 +44,12 @@ void AddToPtrArray(void *data, void ***p_array, uint32_t *p_size, uint32_t *p_co
 	{
 		// Create new array and new size
 		uint32_t ss = *p_size + ARRAY_GROWTH_SPEED;
-		void **aa = malloc(sizeof(void *) * ss);
+		void **aa = malloc(sizeof(void **) * ss);
 
 		// Copy old array into the new one if the old one exists
 		if (*p_array != NULL)
 		{
-			memcpy(aa, *p_array, sizeof(void *) * *p_size);
+			memcpy(aa, *p_array, sizeof(void *) * (*p_count));
 			free(*p_array);
 		}
 
@@ -58,6 +58,6 @@ void AddToPtrArray(void *data, void ***p_array, uint32_t *p_size, uint32_t *p_co
 		*p_size = ss;
 	}
 
-	*p_array[*p_count] = data;
+	(*p_array)[*p_count] = data;
 	*p_count = *p_count + 1;
 }
