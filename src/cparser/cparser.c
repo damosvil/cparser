@@ -653,7 +653,7 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 	return oo;
 }
 
-object_t *Parse(const cparserpaths_t *paths, const uint8_t *filename)
+object_t *CParserParse(const cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
 	state_t s = { NULL, STATE_IDLE, DictionaryNew(), paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };

@@ -42,7 +42,7 @@ int main()
 	CParserPathsAddPath(cpaths,_T "./src/");
 	CParserPathsAddPath(cpaths,_T "./src/cparser");
 
-	object_t *oo = Parse((const cparserpaths_t *)cpaths, _T"project_examples/opengl/main.c");
+	object_t *oo = CParserParse((const cparserpaths_t *)cpaths, _T"project_examples/opengl/main.c");
 
 	printf("Fin.\r\n");
 

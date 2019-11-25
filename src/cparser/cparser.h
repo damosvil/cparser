@@ -9,7 +9,7 @@
 #define CPARSER_H_
 
 
-object_t *Parse(const cparserpaths_t *paths, const uint8_t *filename);
+object_t *CParserParse(const cparserpaths_t *paths, const uint8_t *filename);
 
 
 #endif /* CPARSER_H_ */
