@@ -18,6 +18,8 @@ typedef enum object_type_e
 	OBJECT_TYPE_DEFINE_IDENTIFIER,
 	OBJECT_TYPE_DEFINE_EXPRESSION,
 	OBJECT_TYPE_PREPROCESSOR_DIRECTIVE,
+	OBJECT_TYPE_IFNDEF,
+	OBJECT_TYPE_IFDEF,
 	OBJECT_TYPE_INCLUDE,
 	OBJECT_TYPE_INCLUDE_FILENAME,
 	OBJECT_TYPE_INCLUDE_OBJECT,
@@ -76,8 +78,8 @@ typedef struct object_s
 	uint8_t * info;
 } object_t;
 
-
-object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token);
+void ObjectAddChild(object_t *parent, object_t *child);
+object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t *token);
 object_t *ObjectGetChildByType(object_t *parent, object_type_t type);
 object_t *ObjectGetLastChild(object_t *parent, object_type_t type);
 object_t *ObjectGetParent(object_t *o);

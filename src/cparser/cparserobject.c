@@ -15,7 +15,14 @@
 #include <cparserobject.h>
 
 
-object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token)
+void ObjectAddChild(object_t *parent, object_t *child)
+{
+	// Add object to parent if it is not root node
+	if (parent != NULL)
+		AddToPtrArray(child, &parent->children, &parent->children_size, &parent->children_count);
+}
+
+object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t *token)
 {
 	object_t *child = malloc(sizeof(object_t));
 
@@ -41,9 +48,8 @@ object_t *ObjectAddChild(object_t *parent, object_type_t type, token_t *token)
 		child->data = NULL;
 	}
 
-	// Add object to parent if it is not root node
-	if (parent != NULL)
-		AddToPtrArray(child, &parent->children, &parent->children_size, &parent->children_count);
+	// Add child
+	ObjectAddChild(parent, child);
 
 	// Return children
 	return child;
