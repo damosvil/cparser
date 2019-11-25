@@ -9,10 +9,6 @@
 #define CPARSERPATHS_H_
 
 
-#include <stdint.h>
-#include <stdio.h>
-
-
 struct cparserpaths_s;
 typedef struct cparserpaths_s cparserpaths_t;
 

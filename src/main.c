@@ -19,7 +19,7 @@
 
 int main()
 {
-	dictionary_t *dd = DictionaryNew();
+	cparserdictionary_t *dd = DictionaryNew();
 	DictionarySetKeyValue(dd, _T "cparsertools.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparserpaths.h", NULL);
 	DictionarySetKeyValue(dd, _T "cparsertoken.h", NULL);

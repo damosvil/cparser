@@ -9,18 +9,18 @@
 #define CPARSERDICTIONARY_H_
 
 
-struct dictionary_s;
-typedef struct dictionary_s dictionary_t;
+struct cparserdictionary_s;
+typedef struct cparserdictionary_s cparserdictionary_t;
 
 
-dictionary_t * DictionaryNew(void);
-void DictionaryRemoveKey(dictionary_t *d, const uint8_t *key);
-void DictionarySetKeyValue(dictionary_t *d, const uint8_t *key, const void *value);
-const void * DictionaryGetKeyValue(dictionary_t *d, const uint8_t *key);
-uint32_t DictionaryGetKeyCount(dictionary_t *d);
-const uint8_t * DictionaryGetKeyByIndex(dictionary_t *d, uint32_t ix);
-const void * DictionaryGetValueByIndex(dictionary_t *d, uint32_t ix);
-void DictionaryDelete(dictionary_t *d);
+cparserdictionary_t * DictionaryNew(void);
+void DictionaryRemoveKey(cparserdictionary_t *d, const uint8_t *key);
+void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const void *value);
+const void * DictionaryGetKeyValue(cparserdictionary_t *d, const uint8_t *key);
+uint32_t DictionaryGetKeyCount(cparserdictionary_t *d);
+const uint8_t * DictionaryGetKeyByIndex(cparserdictionary_t *d, uint32_t ix);
+const void * DictionaryGetValueByIndex(cparserdictionary_t *d, uint32_t ix);
+void DictionaryDelete(cparserdictionary_t *d);
 
 
 #endif /* CPARSERDICTIONARY_H_ */

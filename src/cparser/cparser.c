@@ -56,7 +56,8 @@ typedef struct state_s
 {
 	FILE *file;
 	states_t state;
-	dictionary_t *dictionary;
+	cparserdictionary_t *dictionary;
+	const cparserpaths_t *paths;
 	uint32_t tokenizer_flags;
 	token_t token;
 } state_t;
@@ -655,7 +656,7 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 object_t *Parse(const cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
-	state_t s = { NULL, STATE_IDLE, DictionaryNew(), 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
+	state_t s = { NULL, STATE_IDLE, DictionaryNew(), paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
 
 	// Open file
 	if (IsCSourceFilename(filename))
