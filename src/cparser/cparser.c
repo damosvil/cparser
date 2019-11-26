@@ -16,6 +16,26 @@
 #include "cparserdictionary.h"
 #include "cparser.h"
 
+static uint8_t **keywords_c =
+{
+	"auto",		"break",	"case",		"char",
+	"const",	"continue",	"default",	"do",
+	"double",	"else",		"enum",		"extern",
+	"float",	"for",		"goto",		"if",
+	"inline",	"int",		"long",		"register",
+	"restrict",	"return",	"short",	"signed",
+	"sizeof",	"static",	"struct",	"switch",
+	"typedef",	"union",	"unsigned",	"void",
+	"volatile",	"while",	"NULL"
+};
+
+static uint8_t **keywords_preprocessor =
+{
+	"if",		"elif",		"else",		"endif",
+	"defined",	"ifdef",	"ifndef",	"define",
+	"undef",	"include",	"line",		"error",
+	"pragma", 	NULL
+};
 
 #define DATATYPE_DEFINED_FLAGS  	(\
 									EFLAGS_MODIFIER_SIGNED 		       	|\
@@ -30,8 +50,6 @@
 									EFLAGS_DOUBLE 				       	|\
 									EFLAGS_USER_DEFINED_DATATYPE		 \
 									)
-
-
 
 
 typedef enum states_e
@@ -393,7 +411,7 @@ static object_t * ProcessStateIncludeFilename(object_t *oo, state_t *s)
 {
 	uint32_t len = strlen(_t s->token.str);
 	uint8_t *filename = (len < 3) ? NULL : _T strndup(_t s->token.str + 1, len - 2);
-	object_t *nn = CParserParse(s->paths, filename);
+	object_t *nn = CParserParse(s->dictionary, s->paths, filename);
 
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE_FILENAME, &s->token);		// Add include filename
 	oo = ObjectGetParent(oo);														// Return to preprocessor
@@ -686,10 +704,10 @@ static object_t * ProcessStateFunctionIfNDef(object_t *oo, state_t *s)
 	return oo;
 }
 
-object_t *CParserParse(const cparserpaths_t *paths, const uint8_t *filename)
+object_t *CParserParse(cparserdictionary_t *dictionary, const cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
-	state_t s = { NULL, STATE_IDLE, DictionaryNew(), paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
+	state_t s = { NULL, STATE_IDLE, dictionary, paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
 
 	// Create root parse object
 	oo = ObjectAddChildFromToken(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
