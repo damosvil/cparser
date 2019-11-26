@@ -16,25 +16,25 @@
 #include "cparserdictionary.h"
 #include "cparser.h"
 
-static uint8_t **keywords_c =
+static const uint8_t *keywords_c[] =
 {
-	"auto",		"break",	"case",		"char",
-	"const",	"continue",	"default",	"do",
-	"double",	"else",		"enum",		"extern",
-	"float",	"for",		"goto",		"if",
-	"inline",	"int",		"long",		"register",
-	"restrict",	"return",	"short",	"signed",
-	"sizeof",	"static",	"struct",	"switch",
-	"typedef",	"union",	"unsigned",	"void",
-	"volatile",	"while",	"NULL"
+	_T "auto",		_T "break",		_T "case",		_T "char",
+	_T "const",		_T "continue",	_T "default",	_T "do",
+	_T "double",	_T "else",		_T "enum",		_T "extern",
+	_T "float",		_T "for",		_T "goto",		_T "if",
+	_T "inline",	_T "int",		_T "long",		_T "register",
+	_T "restrict",	_T "return",	_T "short",		_T "signed",
+	_T "sizeof",	_T "static",	_T "struct",	_T "switch",
+	_T "typedef",	_T "union",		_T "unsigned",	_T "void",
+	_T "volatile",	_T "while",		_T "NULL"
 };
 
-static uint8_t **keywords_preprocessor =
+static const uint8_t *keywords_preprocessor[] =
 {
-	"if",		"elif",		"else",		"endif",
-	"defined",	"ifdef",	"ifndef",	"define",
-	"undef",	"include",	"line",		"error",
-	"pragma", 	NULL
+	_T "if",		_T "elif",		_T "else",		_T "endif",
+	_T "defined",	_T "ifdef",		_T "ifndef",	_T "define",
+	_T "undef",		_T "include",	_T "line",		_T "error",
+	_T "pragma", 	_T NULL
 };
 
 #define DATATYPE_DEFINED_FLAGS  	(\
@@ -76,7 +76,7 @@ typedef struct state_s
 	FILE *file;
 	states_t state;
 	cparserdictionary_t *dictionary;
-	const cparserpaths_t *paths;
+	cparserpaths_t *paths;
 	uint32_t tokenizer_flags;
 	token_t token;
 } state_t;
@@ -100,6 +100,16 @@ enum eflags_e
 	EFLAGS_COMPOSED_DATATYPE		= 1 << 14
 };
 
+static bool StringInSet(const uint8_t *string, const uint8_t **set)
+{
+	const uint8_t **pp = set;
+
+	while (*pp)
+		if (StrEq(_t string, _t *pp))
+			return true;
+
+	return false;
+}
 
 static object_t * DigestDataType(object_t *oo, state_t *s)
 {
@@ -289,22 +299,37 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
-		// User datatype/variable/function identifier
-		if (eflags & DATATYPE_DEFINED_FLAGS)
+		if (StringInSet(s->token.str, keywords_c))
 		{
-			// Identifier, so end datatype and add an identifier to parent
-			oo = ObjectGetParent(oo);
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_IDENTIFIER, &s->token);
+			// Detected C keyword
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Use of C keywords as identifiers is not allowed");
+		}
+		else if (DictionaryGetKeyValue(s->dictionary, s->token.str))
+		{
+			// Detected identifier already in use
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Identifier already in use");
 		}
 		else
 		{
-			// Datatype not defined, so add user defined datatype identifier
-			eflags |= EFLAGS_USER_DEFINED_DATATYPE;
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DATATYPE_USER_DEFINED, &s->token);
-		}
+			// User datatype/variable/function identifier
+			if (eflags & DATATYPE_DEFINED_FLAGS)
+			{
+				// Identifier, so end datatype and add an identifier to parent
+				oo = ObjectGetParent(oo);
+				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_IDENTIFIER, &s->token);
+			}
+			else
+			{
+				// Datatype not defined, so add user defined datatype identifier
+				eflags |= EFLAGS_USER_DEFINED_DATATYPE;
+				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DATATYPE_USER_DEFINED, &s->token);
+			}
 
-		// Add define identifier to dictionary
-		DictionarySetKeyValue(s->dictionary, s->token.str, oo);
+			// Add define identifier to dictionary
+			DictionarySetKeyValue(s->dictionary, s->token.str, oo);
+		}
 	}
 	else
 	{
@@ -425,16 +450,43 @@ static object_t * ProcessStateIncludeFilename(object_t *oo, state_t *s)
 
 static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 {
-	// Add define identifier and return to preprocessor
-	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);
+	if (StringInSet(s->token.str, keywords_preprocessor))
+	{
+		// Trying to define a c keyword
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Trying to define a C keyword");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (StringInSet(s->token.str, keywords_preprocessor))
+	{
+		// Trying to define a preprocessor keyword
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Trying to define a preprocessor keyword");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (DictionaryGetKeyValue(s->dictionary, s->token.str) != NULL)
+	{
+		// Trying to redefine an already defined symbol
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Trying to define an already defined symbol");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else
+	{
+		// Add define identifier and return to preprocessor
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);
 
-	// Add define identifier to dictionary
-	DictionarySetKeyValue(s->dictionary, s->token.str, oo);
-	oo = ObjectGetParent(oo);
+		// Add define identifier to dictionary
+		DictionarySetKeyValue(s->dictionary, s->token.str, oo);
+		oo = ObjectGetParent(oo);
 
-	// Update state and prepare for parsing a define literal
-	s->state = STATE_DEFINE_LITERAL;
-	s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+		// Update state and prepare for parsing a define literal
+		s->state = STATE_DEFINE_LITERAL;
+		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+	}
 
 	return oo;
 }
@@ -442,8 +494,8 @@ static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 static object_t * ProcessStateDefineLiteral(object_t *oo, state_t *s)
 {
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_EXPRESSION, &s->token);	// Add define expression
-	oo = ObjectGetParent(oo);												// Return to preprocessor
-	oo = ObjectGetParent(oo);												// Return to preprocessor parent
+	oo = ObjectGetParent(oo);													// Return to preprocessor
+	oo = ObjectGetParent(oo);													// Return to preprocessor parent
 	s->state = STATE_IDLE;
 
 	return oo;
@@ -456,8 +508,8 @@ static object_t *ProcessStateIdentifier(object_t *oo, state_t *s)
 		// Sentence end after variable identifier
 		oo->type = OBJECT_TYPE_VARIABLE;
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_SENTENCE_END, &s->token);	// Add sentence end
-		oo = ObjectGetParent(oo);										// Return to variable
-		oo = ObjectGetParent(oo);										// Return to variable parent
+		oo = ObjectGetParent(oo);												// Return to variable
+		oo = ObjectGetParent(oo);												// Return to variable parent
 		s->state = STATE_IDLE;
 	}
 	else if (StrEq(_t s->token.str, "["))
@@ -704,7 +756,7 @@ static object_t * ProcessStateFunctionIfNDef(object_t *oo, state_t *s)
 	return oo;
 }
 
-object_t *CParserParse(cparserdictionary_t *dictionary, const cparserpaths_t *paths, const uint8_t *filename)
+object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
 	state_t s = { NULL, STATE_IDLE, dictionary, paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
