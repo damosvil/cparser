@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 #include "cparserpaths.h"
 #include "cparsertools.h"
@@ -16,26 +17,8 @@
 #include "cparserdictionary.h"
 #include "cparser.h"
 
-static const uint8_t *keywords_c[] =
-{
-	_T "auto",		_T "break",		_T "case",		_T "char",
-	_T "const",		_T "continue",	_T "default",	_T "do",
-	_T "double",	_T "else",		_T "enum",		_T "extern",
-	_T "float",		_T "for",		_T "goto",		_T "if",
-	_T "inline",	_T "int",		_T "long",		_T "register",
-	_T "restrict",	_T "return",	_T "short",		_T "signed",
-	_T "sizeof",	_T "static",	_T "struct",	_T "switch",
-	_T "typedef",	_T "union",		_T "unsigned",	_T "void",
-	_T "volatile",	_T "while",		_T "NULL"
-};
-
-static const uint8_t *keywords_preprocessor[] =
-{
-	_T "if",		_T "elif",		_T "else",		_T "endif",
-	_T "defined",	_T "ifdef",		_T "ifndef",	_T "define",
-	_T "undef",		_T "include",	_T "line",		_T "error",
-	_T "pragma", 	_T NULL
-};
+#define KEYWORDS_C_COUNT							34
+#define KEYWORDS_PREPROCESSOR_COUNT					13
 
 #define DATATYPE_DEFINED_FLAGS  	(\
 									EFLAGS_MODIFIER_SIGNED 		       	|\
@@ -66,7 +49,6 @@ typedef enum states_e
 	STATE_INITIALIZATION,
 	STATE_FUNCTION_PARAMETERS,
 	STATE_FUNCTION_DECLARED,
-	STATE_IFNDEF,
 	STATE_ERROR
 } states_t;
 
@@ -100,15 +82,47 @@ enum eflags_e
 	EFLAGS_COMPOSED_DATATYPE		= 1 << 14
 };
 
-static bool StringInSet(const uint8_t *string, const uint8_t **set)
+typedef enum conditional_compilation_state_e
 {
-	const uint8_t **pp = set;
+	CONDITIONAL_COMPILATION_STATE_LOOKING = 0,		// Looking for a valid expression, an #else or an #endif
+	CONDITIONAL_COMPILATION_STATE_ACCEPTING,		// Accepting tokens after a valid #if expression until an #elif or an #endif
+	CONDITIONAL_COMPILATION_STATE_SKIPPING			// Skipping tokens until an #elif or an #endif
+} conditional_compilation_state_t;
 
-	while (*pp)
-		if (StrEq(_t string, _t *pp))
-			return true;
 
-	return false;
+static const uint8_t *keywords_c[KEYWORDS_C_COUNT] =
+{
+	_T "auto",		_T "break",		_T "case",		_T "char",
+	_T "const",		_T "continue",	_T "default",	_T "do",
+	_T "double",	_T "else",		_T "enum",		_T "extern",
+	_T "float",		_T "for",		_T "goto",		_T "if",
+	_T "inline",	_T "int",		_T "long",		_T "register",
+	_T "restrict",	_T "return",	_T "short",		_T "signed",
+	_T "sizeof",	_T "static",	_T "struct",	_T "switch",
+	_T "typedef",	_T "union",		_T "unsigned",	_T "void",
+	_T "volatile",	_T "while"
+};
+
+static const uint8_t *keywords_preprocessor[KEYWORDS_PREPROCESSOR_COUNT] =
+{
+	_T "define", 	_T "defined",	_T "elif",		_T "else",
+	_T "endif",		_T "error",		_T "if",		_T "ifdef",
+	_T "ifndef",	_T "include",	_T "line",		_T "pragma",
+	_T "undef"
+};
+
+
+static int CompareStringInSet(const void *a, const void *b)
+{
+	char *aa = (char *)a;
+	char *bb = (char *)b;
+
+	return strcmp(aa, bb);
+}
+
+static bool StringInSet(const uint8_t *string, const uint8_t **set, uint32_t lenght)
+{
+	return bsearch(string, set, lenght, sizeof(uint8_t *), CompareStringInSet) != NULL;
 }
 
 static object_t * DigestDataType(object_t *oo, state_t *s)
@@ -299,7 +313,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
-		if (StringInSet(s->token.str, keywords_c))
+		if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 		{
 			// Detected C keyword
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -369,7 +383,11 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 		}
 		else
 		{
-			asm( "int $3" ); // TODO: breakpoint
+			// Unexpected token in global scope
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Unexpected token in global scope");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
 		}
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
@@ -408,17 +426,15 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 	}
 	else if (StrEq(_t s->token.str, "pragma"))
 	{
-		s->state = STATE_PRAGMA;
+		asm( "int $3" ); // TODO: pragma
 	}
 	else if (StrEq(_t s->token.str, "ifdef"))
 	{
-		asm( "int $3" ); // TODO: iddef
+		asm( "int $3" ); // TODO: ifdef
 	}
 	else if (StrEq(_t s->token.str, "ifndef"))
 	{
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_IFNDEF, &s->token);	// Add define to preprocessor object
-		oo = ObjectGetParent(oo);											// Return to preprocessor
-		s->state = STATE_IFNDEF;
+		asm( "int $3" ); // TODO: ifndef
 	}
 	else
 	{
@@ -450,7 +466,7 @@ static object_t * ProcessStateIncludeFilename(object_t *oo, state_t *s)
 
 static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 {
-	if (StringInSet(s->token.str, keywords_preprocessor))
+	if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 	{
 		// Trying to define a c keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -458,7 +474,7 @@ static object_t * ProcessStateDefineIdentifier(object_t *oo, state_t *s)
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (StringInSet(s->token.str, keywords_preprocessor))
+	else if (StringInSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
 	{
 		// Trying to define a preprocessor keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -749,13 +765,6 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 	return oo;
 }
 
-static object_t * ProcessStateFunctionIfNDef(object_t *oo, state_t *s)
-{
-	asm( "int $3" ); // TODO: handle definition
-
-	return oo;
-}
-
 object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
@@ -853,13 +862,9 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			{
 				oo = ProcessStateFunctionDeclared(oo, &s);
 			}
-			else if (s.state == STATE_IFNDEF)
-			{
-				oo = ProcessStateFunctionIfNDef(oo, &s);
-			}
 			else
 			{
-				asm( "int $3" ); // TODO: breakpoint
+				asm( "int $3" ); // TODO: unimplemented state
 			}
 		}
 	}
