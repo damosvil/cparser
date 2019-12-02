@@ -15,6 +15,7 @@
 #include "cparsertoken.h"
 #include "cparserobject.h"
 #include "cparserdictionary.h"
+#include "cparserstack.h"
 #include "cparser.h"
 
 #define KEYWORDS_C_COUNT							34
@@ -52,6 +53,14 @@ typedef enum states_e
 	STATE_ERROR
 } states_t;
 
+typedef enum conditional_compilation_state_e
+{
+	CONDITIONAL_COMPILATION_STATE_NONE = 0,			// No conditional compilation
+	CONDITIONAL_COMPILATION_STATE_LOOKING,			// Looking for a valid expression, an #else or an #endif
+	CONDITIONAL_COMPILATION_STATE_ACCEPTING,		// Accepting tokens after a valid #if expression until an #elif or an #endif
+	CONDITIONAL_COMPILATION_STATE_SKIPPING			// Skipping tokens until an #elif or an #endif
+} conditional_compilation_state_t;
+
 // Parsing state
 typedef struct state_s
 {
@@ -61,6 +70,8 @@ typedef struct state_s
 	cparserpaths_t *paths;
 	uint32_t tokenizer_flags;
 	token_t token;
+	cparserstack_t *conditional_compilation_stack;
+	conditional_compilation_state_t conditional_compilation_state;
 } state_t;
 
 enum eflags_e
@@ -81,14 +92,6 @@ enum eflags_e
 	EFLAGS_USER_DEFINED_DATATYPE	= 1 << 13,
 	EFLAGS_COMPOSED_DATATYPE		= 1 << 14
 };
-
-typedef enum conditional_compilation_state_e
-{
-	CONDITIONAL_COMPILATION_STATE_NONE = 0,			// No conditional compilation
-	CONDITIONAL_COMPILATION_STATE_LOOKING,			// Looking for a valid expression, an #else or an #endif
-	CONDITIONAL_COMPILATION_STATE_ACCEPTING,		// Accepting tokens after a valid #if expression until an #elif or an #endif
-	CONDITIONAL_COMPILATION_STATE_SKIPPING			// Skipping tokens until an #elif or an #endif
-} conditional_compilation_state_t;
 
 
 static const uint8_t *keywords_c[KEYWORDS_C_COUNT] =
@@ -769,7 +772,10 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
-	state_t s = { NULL, STATE_IDLE, dictionary, paths, 0, { CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } } };
+	state_t s = {
+			NULL, STATE_IDLE, dictionary, paths, 0,
+			{ CPARSER_TOKEN_TYPE_INVALID, 0, 0, { 0 } },
+			CParserStackNew(), CONDITIONAL_COMPILATION_STATE_NONE };
 
 	// Create root parse object
 	oo = ObjectAddChildFromToken(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);
