@@ -84,7 +84,8 @@ enum eflags_e
 
 typedef enum conditional_compilation_state_e
 {
-	CONDITIONAL_COMPILATION_STATE_LOOKING = 0,		// Looking for a valid expression, an #else or an #endif
+	CONDITIONAL_COMPILATION_STATE_NONE = 0,			// No conditional compilation
+	CONDITIONAL_COMPILATION_STATE_LOOKING,			// Looking for a valid expression, an #else or an #endif
 	CONDITIONAL_COMPILATION_STATE_ACCEPTING,		// Accepting tokens after a valid #if expression until an #elif or an #endif
 	CONDITIONAL_COMPILATION_STATE_SKIPPING			// Skipping tokens until an #elif or an #endif
 } conditional_compilation_state_t;
