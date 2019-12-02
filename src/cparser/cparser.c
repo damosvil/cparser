@@ -55,9 +55,9 @@ typedef enum states_e
 
 typedef enum conditional_compilation_state_e
 {
-	CONDITIONAL_COMPILATION_STATE_NONE = 0,			// No conditional compilation
-	CONDITIONAL_COMPILATION_STATE_LOOKING,			// Looking for a valid expression, an #else or an #endif
+	CONDITIONAL_COMPILATION_STATE_NONE = 0,			// Accepting tokens after a valid #if expression until an #elif or an #endif
 	CONDITIONAL_COMPILATION_STATE_ACCEPTING,		// Accepting tokens after a valid #if expression until an #elif or an #endif
+	CONDITIONAL_COMPILATION_STATE_LOOKING,			// Looking for a valid expression, an #else or an #endif
 	CONDITIONAL_COMPILATION_STATE_SKIPPING			// Skipping tokens until an #elif or an #endif
 } conditional_compilation_state_t;
 
@@ -396,17 +396,20 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
-		// New unclassified identifier
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_TEMPORAL, NULL);
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DATATYPE, &s->token);
-		s->state = STATE_DATATYPE;
+		if (s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+		{
+			// New unclassified identifier
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_TEMPORAL, NULL);
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DATATYPE, &s->token);
+			s->state = STATE_DATATYPE;
 
-		// Add token to datatype declaration or definition
-		oo = ProcessStateDatatype(oo, s);
+			// Add token to datatype declaration or definition
+			oo = ProcessStateDatatype(oo, s);
+		}
 	}
 	else
 	{
-		asm( "int $3" ); // TODO: breakpoint
+		asm( "int $3" ); // TODO: Unexpected token
 	}
 
 	return oo;
@@ -414,40 +417,146 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 
 static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 {
-	if (StrEq(_t s->token.str, "include"))
+	switch (s->conditional_compilation_state)
 	{
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
-		oo = ObjectGetParent(oo);											// Return to preprocessor
-		s->state = STATE_INCLUDE_FILENAME;
-		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
+
+	case CONDITIONAL_COMPILATION_STATE_NONE:
+		if (StrEq(_t s->token.str, "include"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->state = STATE_INCLUDE_FILENAME;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
+		}
+		else if (StrEq(_t s->token.str, "define"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->state = STATE_DEFINE_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
+		else if (StrEq(_t s->token.str, "pragma"))
+		{
+			asm( "int $3" ); // TODO: pragma
+		}
+		else if (StrEq(_t s->token.str, "ifdef"))
+		{
+			asm( "int $3" ); // TODO: ifdef
+		}
+		else if (StrEq(_t s->token.str, "ifndef"))
+		{
+			asm( "int $3" ); // TODO: ifndef
+		}
+		else if (StrEq(_t s->token.str, "elif"))
+		{
+			// elif without if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("#elif without #if");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
+		}
+		else if (StrEq(_t s->token.str, "else"))
+		{
+			// else without if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("#else without #if");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
+		}
+		else if (StrEq(_t s->token.str, "endif"))
+		{
+			// endif without if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("#endif without #if");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
+		}
+		else
+		{
+			// Invalid preprocessor directive
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Invalid preprocessor directive");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
+		}
+		break;
+
+	case CONDITIONAL_COMPILATION_STATE_ACCEPTING:
+		if (StrEq(_t s->token.str, "include"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->state = STATE_INCLUDE_FILENAME;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
+		}
+		else if (StrEq(_t s->token.str, "define"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->state = STATE_DEFINE_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
+		else if (StrEq(_t s->token.str, "pragma"))
+		{
+			asm( "int $3" ); // TODO: pragma
+		}
+		else if (StrEq(_t s->token.str, "ifdef"))
+		{
+			asm( "int $3" ); // TODO: ifdef
+		}
+		else if (StrEq(_t s->token.str, "ifndef"))
+		{
+			asm( "int $3" ); // TODO: ifndef
+		}
+		else if (StrEq(_t s->token.str, "elif"))
+		{
+			asm( "int $3" ); // TODO: elif
+		}
+		else if (StrEq(_t s->token.str, "else"))
+		{
+			asm( "int $3" ); // TODO: else
+		}
+		else if (StrEq(_t s->token.str, "endif"))
+		{
+			asm( "int $3" ); // TODO: endif
+		}
+		else
+		{
+			// Invalid preprocessor directive
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Invalid preprocessor directive");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
+		}
+		break;
+
+	case CONDITIONAL_COMPILATION_STATE_LOOKING:
+		if (StrEq(_t s->token.str, "elif"))
+		{
+			asm( "int $3" ); // TODO: elif
+		}
+		else if (StrEq(_t s->token.str, "else"))
+		{
+			asm( "int $3" ); // TODO: else
+		}
+		else if (StrEq(_t s->token.str, "endif"))
+		{
+			asm( "int $3" ); // TODO: endif
+		}
+		break;
+
+	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
+		if (StrEq(_t s->token.str, "endif"))
+		{
+			asm( "int $3" ); // TODO: endif
+		}
+		break;
+
+	default:
+		break;
+
 	}
-	else if (StrEq(_t s->token.str, "define"))
-	{
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
-		oo = ObjectGetParent(oo);											// Return to preprocessor
-		s->state = STATE_DEFINE_IDENTIFIER;
-		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
-	}
-	else if (StrEq(_t s->token.str, "pragma"))
-	{
-		asm( "int $3" ); // TODO: pragma
-	}
-	else if (StrEq(_t s->token.str, "ifdef"))
-	{
-		asm( "int $3" ); // TODO: ifdef
-	}
-	else if (StrEq(_t s->token.str, "ifndef"))
-	{
-		asm( "int $3" ); // TODO: ifndef
-	}
-	else
-	{
-		// Unexpected token
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
-		oo->info = _T strdup("Unexpected preprocessor directive");
-		oo = ObjectGetParent(oo);
-		s->state = STATE_ERROR;
-	}
+
 
 	return oo;
 }
@@ -815,12 +924,18 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 
 		// Process tokens
 		if (s.token.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s.token);
-			oo = ObjectGetParent(oo);
+			if (s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+			{
+				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s.token);
+				oo = ObjectGetParent(oo);
+			}
 		}
 		else if (s.token.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) {
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s.token);
-			oo = ObjectGetParent(oo);
+			if (s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+			{
+				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s.token);
+				oo = ObjectGetParent(oo);
+			}
 		}
 		else
 		{
