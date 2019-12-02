@@ -833,45 +833,48 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			{
 				oo = ProcessStatePreprocessor(oo, &s);
 			}
-			else if (s.state == STATE_INCLUDE_FILENAME)
+			else if (s.conditional_compilation_state != CONDITIONAL_COMPILATION_STATE_SKIPPING)
 			{
-				oo = ProcessStateIncludeFilename(oo, &s);
-			}
-			else if (s.state == STATE_DEFINE_IDENTIFIER)
-			{
-				oo = ProcessStateDefineIdentifier(oo, &s);
-			}
-			else if (s.state == STATE_DEFINE_LITERAL)
-			{
-				oo = ProcessStateDefineLiteral(oo, &s);
-			}
-			else if (s.state == STATE_DATATYPE)
-			{
-				oo = ProcessStateDatatype(oo, &s);
-			}
-			else if (s.state == STATE_IDENTIFIER)
-			{
-				oo = ProcessStateIdentifier(oo, &s);
-			}
-			else if (s.state == STATE_ARRAY_DEFINITION)
-			{
-				oo = ProcessStateArrayDefinition(oo, &s);
-			}
-			else if (s.state == STATE_INITIALIZATION)
-			{
-				oo = ProcessStateInitialization(oo, &s);
-			}
-			else if (s.state == STATE_FUNCTION_PARAMETERS)
-			{
-				oo = ProcessStateFunctionParameters(oo, &s);
-			}
-			else if (s.state == STATE_FUNCTION_DECLARED)
-			{
-				oo = ProcessStateFunctionDeclared(oo, &s);
-			}
-			else
-			{
-				asm( "int $3" ); // TODO: unimplemented state
+				if (s.state == STATE_INCLUDE_FILENAME)
+				{
+					oo = ProcessStateIncludeFilename(oo, &s);
+				}
+				else if (s.state == STATE_DEFINE_IDENTIFIER)
+				{
+					oo = ProcessStateDefineIdentifier(oo, &s);
+				}
+				else if (s.state == STATE_DEFINE_LITERAL)
+				{
+					oo = ProcessStateDefineLiteral(oo, &s);
+				}
+				else if (s.state == STATE_DATATYPE)
+				{
+					oo = ProcessStateDatatype(oo, &s);
+				}
+				else if (s.state == STATE_IDENTIFIER)
+				{
+					oo = ProcessStateIdentifier(oo, &s);
+				}
+				else if (s.state == STATE_ARRAY_DEFINITION)
+				{
+					oo = ProcessStateArrayDefinition(oo, &s);
+				}
+				else if (s.state == STATE_INITIALIZATION)
+				{
+					oo = ProcessStateInitialization(oo, &s);
+				}
+				else if (s.state == STATE_FUNCTION_PARAMETERS)
+				{
+					oo = ProcessStateFunctionParameters(oo, &s);
+				}
+				else if (s.state == STATE_FUNCTION_DECLARED)
+				{
+					oo = ProcessStateFunctionDeclared(oo, &s);
+				}
+				else
+				{
+					asm( "int $3" ); // TODO: unimplemented state
+				}
 			}
 		}
 	}
