@@ -615,7 +615,11 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
-		if (StrEq(_t s->token.str, "endif"))
+		if (StrEq(_t s->token.str, "else"))
+		{
+			__builtin_trap(); // TODO: else
+		}
+		else if (StrEq(_t s->token.str, "endif"))
 		{
 			__builtin_trap(); // TODO: endif
 		}
@@ -979,7 +983,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 	}
 	else
 	{
-		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_SKIPPING;
+		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_LOOKING;
 	}
 
 	return oo;
@@ -1003,7 +1007,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 	}
 	else
 	{
-		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_SKIPPING;
+		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_LOOKING;
 	}
 
 	return oo;
