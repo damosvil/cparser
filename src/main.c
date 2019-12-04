@@ -39,7 +39,12 @@ int main()
 	cparserdictionary_t *defines = DictionaryNew();
 	DictionarySetKeyValue(defines, _T "DEBUG", NULL);
 
+
 	cparserpaths_t *cpaths = PathsNew();
+	PathsAddPath(cpaths,_T "/usr/lib/gcc/x86_64-linux-gnu/7/include");
+	PathsAddPath(cpaths,_T "/usr/local/include");
+	PathsAddPath(cpaths,_T "/usr/lib/gcc/x86_64-linux-gnu/7/include-fixed");
+	PathsAddPath(cpaths,_T "/usr/include/x86_64-linux-gnu");
 	PathsAddPath(cpaths,_T "/usr/include");
 	PathsAddPath(cpaths,_T "./src/");
 	PathsAddPath(cpaths,_T "./src/cparser");

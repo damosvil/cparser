@@ -34,7 +34,7 @@ typedef enum token_type_e
 typedef struct token_s
 {
 	token_type_t type;
-	bool row_updated;
+	bool first_token_in_line;
 	uint32_t row;
 	uint32_t column;
 	uint8_t str[MAX_SENTENCE_LENGTH + 1];

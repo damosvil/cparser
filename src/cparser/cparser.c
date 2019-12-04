@@ -440,7 +440,7 @@ static object_t * ProcessCppComment(object_t *oo, state_t *s)
 static object_t * ProcessNewDirective(object_t *oo, state_t *s)
 {
 	// Check directive is in new line
-	if (s->token.row_updated)
+	if (s->token.first_token_in_line)
 	{
 		// Add new preprocessor directive object and start parsing it
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_DIRECTIVE, &s->token);
@@ -687,11 +687,11 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 	else
 	{
 		// Add define identifier and return to preprocessor
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
-		DictionarySetKeyValue(s->dictionary, s->token.str, oo);
-		oo = ObjectGetParent(oo);
+		DictionarySetKeyValue(s->dictionary, s->token.str, oo);							// Add definition to dictionary
+		oo = ObjectGetParent(oo);														// Return to preprocessor
 
 		// Update state and prepare for parsing a define literal
 		s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_LITERAL;
