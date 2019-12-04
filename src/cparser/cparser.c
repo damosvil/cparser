@@ -313,7 +313,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 	else if (StrEq(_t s->token.str, "{"))
 	{
 		// Datatype embedded definition
-		asm( "int $3" ); // TODO: breakpoint
+		__builtin_trap(); // TODO: breakpoint
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
@@ -409,7 +409,7 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 	}
 	else
 	{
-		asm( "int $3" ); // TODO: Unexpected token
+		__builtin_trap(); // TODO: Unexpected token
 	}
 
 	return oo;
@@ -437,15 +437,16 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "pragma"))
 		{
-			asm( "int $3" ); // TODO: pragma
+			__builtin_trap();
+			__builtin_trap(); // TODO: pragma
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
-			asm( "int $3" ); // TODO: ifdef
+			__builtin_trap(); // TODO: ifdef
 		}
 		else if (StrEq(_t s->token.str, "ifndef"))
 		{
-			asm( "int $3" ); // TODO: ifndef
+			__builtin_trap(); // TODO: ifndef
 		}
 		else if (StrEq(_t s->token.str, "elif"))
 		{
@@ -498,27 +499,27 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "pragma"))
 		{
-			asm( "int $3" ); // TODO: pragma
+			__builtin_trap(); // TODO: pragma
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
-			asm( "int $3" ); // TODO: ifdef
+			__builtin_trap(); // TODO: ifdef
 		}
 		else if (StrEq(_t s->token.str, "ifndef"))
 		{
-			asm( "int $3" ); // TODO: ifndef
+			__builtin_trap(); // TODO: ifndef
 		}
 		else if (StrEq(_t s->token.str, "elif"))
 		{
-			asm( "int $3" ); // TODO: elif
+			__builtin_trap(); // TODO: elif
 		}
 		else if (StrEq(_t s->token.str, "else"))
 		{
-			asm( "int $3" ); // TODO: else
+			__builtin_trap(); // TODO: else
 		}
 		else if (StrEq(_t s->token.str, "endif"))
 		{
-			asm( "int $3" ); // TODO: endif
+			__builtin_trap(); // TODO: endif
 		}
 		else
 		{
@@ -533,22 +534,22 @@ static object_t * ProcessStatePreprocessor(object_t *oo, state_t *s)
 	case CONDITIONAL_COMPILATION_STATE_LOOKING:
 		if (StrEq(_t s->token.str, "elif"))
 		{
-			asm( "int $3" ); // TODO: elif
+			__builtin_trap(); // TODO: elif
 		}
 		else if (StrEq(_t s->token.str, "else"))
 		{
-			asm( "int $3" ); // TODO: else
+			__builtin_trap(); // TODO: else
 		}
 		else if (StrEq(_t s->token.str, "endif"))
 		{
-			asm( "int $3" ); // TODO: endif
+			__builtin_trap(); // TODO: endif
 		}
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
 		if (StrEq(_t s->token.str, "endif"))
 		{
-			asm( "int $3" ); // TODO: endif
+			__builtin_trap(); // TODO: endif
 		}
 		break;
 
@@ -664,7 +665,7 @@ static object_t *ProcessStateIdentifier(object_t *oo, state_t *s)
 	else if (StrEq(_t s->token.str, "{"))
 	{
 		// User defined union, enum or struct identifier
-		asm( "int $3" ); // TODO: breakpoint
+		__builtin_trap(); // TODO: breakpoint
 	}
 	else if (StrEq(_t s->token.str, "="))
 	{
@@ -864,7 +865,7 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 	else if (StrEq(_t s->token.str, "{"))
 	{
 		// Beginning of function definition
-		asm( "int $3" ); // TODO: breakpoint
+		__builtin_trap(); // TODO: breakpoint
 	}
 	else
 	{
@@ -988,7 +989,7 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 				}
 				else
 				{
-					asm( "int $3" ); // TODO: unimplemented state
+					__builtin_trap(); // TODO: unimplemented state
 				}
 			}
 		}
