@@ -411,7 +411,10 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 
 static object_t * ProcessCComment(object_t *oo, state_t *s)
 {
-	if (s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+	if (
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+		)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s->token);
 		oo = ObjectGetParent(oo);
@@ -422,7 +425,10 @@ static object_t * ProcessCComment(object_t *oo, state_t *s)
 
 static object_t * ProcessCppComment(object_t *oo, state_t *s)
 {
-	if (s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+	if (
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+		)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s->token);
 		oo = ObjectGetParent(oo);
