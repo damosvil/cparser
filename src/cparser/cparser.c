@@ -409,6 +409,28 @@ static object_t * ProcessStateIdle(object_t *oo, state_t *s)
 	return oo;
 }
 
+static object_t * ProcessCComment(object_t *oo, state_t *s)
+{
+	if (s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s->token);
+		oo = ObjectGetParent(oo);
+	}
+
+	return oo;
+}
+
+static object_t * ProcessCppComment(object_t *oo, state_t *s)
+{
+	if (s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s->token);
+		oo = ObjectGetParent(oo);
+	}
+
+	return oo;
+}
+
 static object_t * ProcessNewDirective(object_t *oo, state_t *s)
 {
 	// Check directive is in new line
@@ -1026,19 +1048,13 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 		printf("R%d, C%d, %d:%s\n", s.token.row, s.token.column, s.token.type, s.token.str);
 
 		// Process tokens
-		if (s.token.type == CPARSER_TOKEN_TYPE_C_COMMENT) {
-			if (s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
-			{
-				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s.token);
-				oo = ObjectGetParent(oo);
-			}
+		if (s.token.type == CPARSER_TOKEN_TYPE_C_COMMENT)
+		{
+			oo = ProcessCComment(oo, &s);
 		}
-		else if (s.token.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) {
-			if (s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
-			{
-				oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s.token);
-				oo = ObjectGetParent(oo);
-			}
+		else if (s.token.type == CPARSER_TOKEN_TYPE_CPP_COMMENT)
+		{
+			oo = ProcessCppComment(oo, &s);
 		}
 		else if (s.token.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR && s.token.str[0] == '#')
 		{
