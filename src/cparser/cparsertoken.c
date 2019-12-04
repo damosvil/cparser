@@ -335,6 +335,7 @@ bool TokenNext(FILE *f, token_t *tt, uint32_t flags)
 	static uint32_t row = 1, column = 0;
 	static int16_t last_char = 0;
 	bool res = true;
+	uint32_t current_row = row;
 
 	// In the beginning read next char
 	if (row == 1 && column == 0)
@@ -429,6 +430,9 @@ bool TokenNext(FILE *f, token_t *tt, uint32_t flags)
 		ParseInvalidCharacter(f, &row, &column, &last_char, tt);
 		res = false;
 	}
+
+	// Update row updated token flag
+	tt->row_updated = current_row != tt->row;
 
 	return res;
 }

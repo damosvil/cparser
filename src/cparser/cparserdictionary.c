@@ -27,6 +27,7 @@ typedef struct cparserdictionary_s
 	int32_t pairs_count;
 } cparserdictionary_t;
 
+
 static int DictionaryKeyCompare(const void * ka, const void * kb)
 {
 	pair_t *kka = *(pair_t **)ka;

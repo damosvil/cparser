@@ -39,11 +39,11 @@ int main()
 	cparserdictionary_t *defines = DictionaryNew();
 	DictionarySetKeyValue(defines, _T "DEBUG", NULL);
 
-	cparserpaths_t *cpaths = CParserPathsNew();
-	CParserPathsAddPath(cpaths,_T "/usr/include");
-	CParserPathsAddPath(cpaths,_T "./src/");
-	CParserPathsAddPath(cpaths,_T "./src/cparser");
-	CParserPathsAddPath(cpaths,_T ".");
+	cparserpaths_t *cpaths = PathsNew();
+	PathsAddPath(cpaths,_T "/usr/include");
+	PathsAddPath(cpaths,_T "./src/");
+	PathsAddPath(cpaths,_T "./src/cparser");
+	PathsAddPath(cpaths,_T ".");
 
 	object_t *oo = CParserParse(defines, cpaths, _T"project_examples/opengl/main.c");
 

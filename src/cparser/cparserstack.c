@@ -20,7 +20,7 @@ struct cparserstack_s
 	uint8_t *data;
 };
 
-cparserstack_t *CParserStackNew(void)
+cparserstack_t *StackNew(void)
 {
 	cparserstack_t *res = malloc(sizeof(cparserstack_t));
 
@@ -31,12 +31,12 @@ cparserstack_t *CParserStackNew(void)
 	return res;
 }
 
-void CParserStackDelete(cparserstack_t *s)
+void StackDelete(cparserstack_t *s)
 {
 	free(s);
 }
 
-void CParserStackPushBytes(cparserstack_t *s, const void *data, size_t size)
+void StackPushBytes(cparserstack_t *s, const void *data, size_t size)
 {
 	// Skip if no data
 	if (data == NULL || size == 0)
@@ -65,7 +65,7 @@ void CParserStackPushBytes(cparserstack_t *s, const void *data, size_t size)
 	s->count += size;
 }
 
-bool CParserStackPopBytes(cparserstack_t *s, void *data, size_t size)
+bool StackPopBytes(cparserstack_t *s, void *data, size_t size)
 {
 	// Skip if no destination buffer, not enough room or not enough data in stack
 	if (data == NULL || size == 0 || size > s->count)

@@ -22,7 +22,7 @@ typedef struct cparserpaths_s
 } cparserpaths_t;
 
 
-cparserpaths_t *CParserPathsNew(void)
+cparserpaths_t *PathsNew(void)
 {
 	cparserpaths_t *res = malloc(sizeof(cparserpaths_t));
 
@@ -34,7 +34,7 @@ cparserpaths_t *CParserPathsNew(void)
 	return res;
 }
 
-cparserpaths_t *CParserPathsClone(cparserpaths_t *p)
+cparserpaths_t *PathsClone(cparserpaths_t *p)
 {
 	cparserpaths_t *res = malloc(sizeof(cparserpaths_t));
 
@@ -47,7 +47,7 @@ cparserpaths_t *CParserPathsClone(cparserpaths_t *p)
 	return res;
 }
 
-void CParserPathsDelete(cparserpaths_t *p)
+void PathsDelete(cparserpaths_t *p)
 {
 	// Delete paths
 	while (p->m_paths_count--)
@@ -57,7 +57,7 @@ void CParserPathsDelete(cparserpaths_t *p)
 	free(p->m_paths);
 }
 
-void CParserPathsAddPath(cparserpaths_t *p, const uint8_t *path)
+void PathsAddPath(cparserpaths_t *p, const uint8_t *path)
 {
 	if (p->m_paths_count == p->m_paths_size)
 	{
@@ -78,12 +78,12 @@ void CParserPathsAddPath(cparserpaths_t *p, const uint8_t *path)
 	p->m_paths[p->m_paths_count++] = _T strdup(_t path);
 }
 
-uint32_t CParserPathsGetPathsCount(cparserpaths_t *p)
+uint32_t PathsGetPathsCount(cparserpaths_t *p)
 {
 	return p->m_paths_count;
 }
 
-const uint8_t * CParserPathsGetPathByIndex(cparserpaths_t *p, uint32_t i)
+const uint8_t * PathsGetPathByIndex(cparserpaths_t *p, uint32_t i)
 {
 	if (i >= p->m_paths_count)
 		return NULL;
@@ -91,7 +91,7 @@ const uint8_t * CParserPathsGetPathByIndex(cparserpaths_t *p, uint32_t i)
 	return p->m_paths[i];
 }
 
-FILE * CParserPathsOpenFile(const cparserpaths_t *p, const uint8_t *filename, const uint8_t *mode)
+FILE * PathsOpenFile(const cparserpaths_t *p, const uint8_t *filename, const uint8_t *mode)
 {
 	char *pc;
 	uint32_t lp, lf;
@@ -123,7 +123,7 @@ FILE * CParserPathsOpenFile(const cparserpaths_t *p, const uint8_t *filename, co
 	return f;
 }
 
-void CParserPathsDeletePathByIndex(cparserpaths_t *p, uint32_t i)
+void PathsDeletePathByIndex(cparserpaths_t *p, uint32_t i)
 {
 	if (i >= p->m_paths_count)
 		return;
