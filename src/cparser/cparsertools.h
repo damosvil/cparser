@@ -16,14 +16,8 @@
 /* Growth speed for arrays */
 #define ARRAY_GROWTH_SPEED 			10
 
-/* Maximum identifier lenght */
-#define MAX_IDENTIFIER_LENGTH		1023
-
 /* Maximum sentence lenght */
-#define MAX_SENTENCE_LENGTH			65534
-
-/* Maximum comment lenght */
-#define MAX_COMMENT_LENGTH			65534
+#define MAX_SENTENCE_LENGTH			(1 << 24)	// 16 Mb
 
 /* String functions */
 const bool StrEq(const char *u, const char *v);

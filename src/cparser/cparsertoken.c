@@ -121,7 +121,7 @@ static void ParseDigestString(FILE *f, uint32_t *p_row, uint32_t *p_column, int1
 	*p_last_char = NextChar(f, p_row, p_column);
 
 	// Copy identifier into str
-	while ((*p_last_char != EOF) && filter(*p_last_char, p - str, p))
+	while ((*p_last_char != EOF) && filter(*p_last_char, p - str, p) && ((p - str) < MAX_SENTENCE_LENGTH))
 	{
 		*p++ = *p_last_char;
 		*p_last_char = NextChar(f, p_row, p_column);
