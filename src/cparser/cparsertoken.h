@@ -37,7 +37,7 @@ typedef struct token_s
 	bool first_token_in_line;
 	uint32_t row;
 	uint32_t column;
-	uint8_t str[MAX_SENTENCE_LENGTH + 10];
+	uint8_t *str;
 } token_t;
 
 bool TokenNext(FILE *f, token_t *tt, uint32_t flags);

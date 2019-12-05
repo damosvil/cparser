@@ -969,6 +969,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 {
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);	// Add include to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor
+	oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
 	// Return preprocessor state to IDLE
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -993,6 +994,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 {
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);	// Add include to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor
+	oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
 	// Return preprocessor state to IDLE
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -1018,7 +1020,7 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 	object_t *oo;
 	state_t s = {
 			NULL, STATE_IDLE, PREPROCESSOR_STATE_IDLE, dictionary, paths, 0,
-			{ CPARSER_TOKEN_TYPE_INVALID, false, 0, 0, { 0 } },
+			{ CPARSER_TOKEN_TYPE_INVALID, false, 0, 0, malloc(MAX_SENTENCE_LENGTH + 10) },
 			StackNew(), CONDITIONAL_COMPILATION_STATE_IDLE };
 
 	// Create root parse object
@@ -1142,6 +1144,9 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			}
 		}
 	}
+
+	// Delete token requested str buffer
+	free(s.token.str);
 
 	// Delete stack
 	StackDelete(s.conditional_compilation_stack);

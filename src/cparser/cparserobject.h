@@ -62,7 +62,8 @@ typedef enum object_type_e
 	OBJECT_TYPE_UNION,
 	OBJECT_TYPE_ENUM,
 	OBJECT_TYPE_STRUCT,
-	OBJECT_TYPE_TEMPORAL
+	OBJECT_TYPE_TEMPORAL,
+	OBJECT_TYPE_COUNT
 } object_type_t;
 
 // Parse object
@@ -85,6 +86,7 @@ object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t 
 object_t *ObjectGetChildByType(object_t *parent, object_type_t type);
 object_t *ObjectGetLastChild(object_t *parent, object_type_t type);
 object_t *ObjectGetParent(object_t *o);
+void ObjectPrint(object_t *o, uint32_t level);
 
 
 #endif /* CPARSER_CPARSEROBJECT_H_ */
