@@ -169,3 +169,11 @@ void ObjectPrint(object_t *o, uint32_t level)
 
 	printf("%*c</object>\n", 4 * level, ' ');
 }
+
+void ObjectPrintRoot(object_t *o)
+{
+	while (o->parent)
+		o = o->parent;
+
+	ObjectPrint(o, 0);
+}

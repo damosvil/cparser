@@ -22,6 +22,7 @@ typedef enum object_type_e
 	OBJECT_TYPE_PREPROCESSOR_IFDEF,
 	OBJECT_TYPE_PREPROCESSOR_ELSE,
 	OBJECT_TYPE_PREPROCESSOR_ENDIF,
+	OBJECT_TYPE_PREPROCESSOR_ERROR,
 	OBJECT_TYPE_INCLUDE,
 	OBJECT_TYPE_INCLUDE_FILENAME,
 	OBJECT_TYPE_INCLUDE_OBJECT,
@@ -87,6 +88,7 @@ object_t *ObjectGetChildByType(object_t *parent, object_type_t type);
 object_t *ObjectGetLastChild(object_t *parent, object_type_t type);
 object_t *ObjectGetParent(object_t *o);
 void ObjectPrint(object_t *o, uint32_t level);
+void ObjectPrintRoot(object_t *o);
 
 
 #endif /* CPARSER_CPARSEROBJECT_H_ */

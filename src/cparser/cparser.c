@@ -58,6 +58,7 @@ typedef enum preprocessor_state_e
 	PREPROCESSOR_STATE_DEFINE_LITERAL,		// Parsing define literal or expression
 	PREPROCESSOR_STATE_IFNDEF,				// Parsing ifndef identifier
 	PREPROCESSOR_STATE_IFDEF,				// Parsing ifdef identifier
+	PREPROCESSOR_STATE_ERROR,				// Parsing error string literal
 } preprocessor_state_t;
 
 typedef enum conditional_compilation_state_s
@@ -468,6 +469,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
 			oo = ObjectGetParent(oo);											// Return to preprocessor
+
 			s->preprocessor_state = PREPROCESSOR_STATE_INCLUDE_FILENAME;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
 		}
@@ -475,12 +477,21 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
 			oo = ObjectGetParent(oo);											// Return to preprocessor
+
 			s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_IDENTIFIER;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 		}
 		else if (StrEq(_t s->token.str, "pragma"))
 		{
 			__builtin_trap(); // TODO: pragma
+		}
+		else if (StrEq(_t s->token.str, "error"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ERROR, &s->token);	// Add error to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_ERROR;
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
@@ -549,10 +560,20 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			__builtin_trap(); // TODO: pragma
 		}
+		else if (StrEq(_t s->token.str, "error"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ERROR, &s->token);	// Add error to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_ERROR;
+		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IFDEF, &s->token);	// Add ifdef to preprocessor object
 			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state and prepare to read a define identifier
 			s->preprocessor_state = PREPROCESSOR_STATE_IFDEF;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 		}
@@ -560,6 +581,8 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IFNDEF, &s->token);	// Add ifndef to preprocessor object
 			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state and prepare to read a define identifier
 			s->preprocessor_state = PREPROCESSOR_STATE_IFNDEF;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 		}
@@ -571,6 +594,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELSE, &s->token);		// Add else to preprocessor object
 			oo = ObjectGetParent(oo);														// Return to preprocessor
+			oo = ObjectGetParent(oo);														// Return to preprocessor parent
 
 			// Return preprocessor state to IDLE
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -582,6 +606,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ENDIF, &s->token);	// Add endif to preprocessor object
 			oo = ObjectGetParent(oo);														// Return to preprocessor
+			oo = ObjectGetParent(oo);														// Return to preprocessor parent
 
 			// Return preprocessor state to IDLE
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -610,29 +635,65 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "endif"))
 		{
-			__builtin_trap(); // TODO: endif
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ENDIF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+			oo = ObjectGetParent(oo);														// Return to preprocessor parent
+
+			// Return preprocessor state to IDLE
+			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+			// Pop conditional compilation state
+			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
 		}
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
 		if (StrEq(_t s->token.str, "else"))
 		{
-			__builtin_trap(); // TODO: else
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELSE, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);													// Return to preprocessor
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+
+			// Return preprocessor state to IDLE
+			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+			// Update conditional compilation state
+			s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_SKIPPING_ELSE;
 		}
 		else if (StrEq(_t s->token.str, "endif"))
 		{
-			__builtin_trap(); // TODO: endif
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ENDIF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+			oo = ObjectGetParent(oo);														// Return to preprocessor parent
+
+			// Return preprocessor state to IDLE
+			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+			// Pop conditional compilation state
+			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
 		}
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING_ELSE:
 		if (StrEq(_t s->token.str, "else"))
 		{
-			__builtin_trap(); // TODO: else
+			// #else after #else
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+			oo->info = _T strdup("Invalid #else after #else");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
 		}
 		else if (StrEq(_t s->token.str, "endif"))
 		{
-			__builtin_trap(); // TODO: endif
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ENDIF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+			oo = ObjectGetParent(oo);														// Return to preprocessor parent
+
+			// Return preprocessor state to IDLE
+			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+			// Pop conditional compilation state
+			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
 		}
 		break;
 
@@ -1015,6 +1076,21 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 	return oo;
 }
 
+static object_t * ProcessPreprocessorStateError(object_t *oo, state_t *s)
+{
+	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);	// Add error
+	oo = ObjectGetParent(oo);										// Return to preprocessor
+	oo = ObjectGetParent(oo);										// Return to preprocessor parent
+
+	// Return to idle preprocessor state
+	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+	// Stop parsing going to ERROR parsing state
+	s->state = STATE_ERROR;
+
+	return oo;
+}
+
 object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, const uint8_t *filename)
 {
 	object_t *oo;
@@ -1098,6 +1174,10 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			else if (s.preprocessor_state == PREPROCESSOR_STATE_IFDEF)
 			{
 				oo = ProcessPreprocessorStateIfdef(oo, &s);
+			}
+			else if (s.preprocessor_state == PREPROCESSOR_STATE_ERROR)
+			{
+				oo = ProcessPreprocessorStateError(oo, &s);
 			}
 			else if (
 					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING) ||
