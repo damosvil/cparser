@@ -51,10 +51,10 @@ void DictionaryRemoveKey(cparserdictionary_t *d, const uint8_t *key)
 {
 	pair_t pp = { key, NULL };
 	pair_t *ppp = &pp;
-	pair_t *p = (pair_t *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+	pair_t **p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
 	if (!p) return;
 
-	uint32_t ix = &p - d->pairs;	// Keys are disposed in a linear array
+	uint32_t ix = p - d->pairs;	// Keys are disposed in a linear array
 
 	// Decrease pairs, and bulk back copy all remaining pointers
 	d->pairs_count--;
@@ -66,7 +66,8 @@ void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const voi
 	int ix = 0;
 	pair_t pp = { key, NULL };
 	pair_t *ppp = &pp;
-	pair_t *p = (pair_t *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+	pair_t **p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+	pair_t *q;
 
 	// Add pair if no key found
 	if (!p)
@@ -88,8 +89,9 @@ void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const voi
 		}
 
 		// Create a new pair
-		p = malloc(sizeof(pair_t));
-		p->key = _T strdup(_t key);
+		q = malloc(sizeof(pair_t));
+		q->key = _T strdup(_t key);
+		q->value = value;
 
 		// Look for insert index
 		if (d->pairs_count > 0)
@@ -122,21 +124,32 @@ void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const voi
 		}
 
 		// Insert the new pair and increase pairs count
-		d->pairs[ix] = p;
+		d->pairs[ix] = q;
 		d->pairs_count++;
 	}
+	else
+	{
+		// Update value in found key
+		(*p)->value = value;
+	}
+}
 
-	// Update / set pair value
-	p->value = value;
+bool DictionaryExistsKey(cparserdictionary_t *d, const uint8_t *key)
+{
+	pair_t pp = { key, NULL };
+	pair_t *ppp = &pp;
+	pair_t **p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+
+	return p != NULL;
 }
 
 const void * DictionaryGetKeyValue(cparserdictionary_t *d, const uint8_t *key)
 {
 	pair_t pp = { key, NULL };
 	pair_t *ppp = &pp;
-	pair_t *p = (pair_t *) bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+	pair_t **p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
 
-	return p ? p->value : NULL;
+	return p ? (*p)->value : NULL;
 }
 
 uint32_t DictionaryGetKeyCount(cparserdictionary_t *d)

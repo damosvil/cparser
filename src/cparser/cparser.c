@@ -332,7 +332,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 			oo->info = _T strdup("Use of C keywords as identifiers is not allowed");
 		}
-		else if (DictionaryGetKeyValue(s->dictionary, s->token.str))
+		else if (DictionaryExistsKey(s->dictionary, s->token.str))
 		{
 			// Detected identifier already in use
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -680,7 +680,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (DictionaryGetKeyValue(s->dictionary, s->token.str) != NULL)
+	else if (DictionaryExistsKey(s->dictionary, s->token.str))
 	{
 		// Trying to redefine an already defined symbol
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -977,7 +977,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 	StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
 
 	// Update conditional compilation state depending on the requested identifier exists or not
-	if (DictionaryGetKeyValue(s->dictionary, s->token.str) == NULL)
+	if (!DictionaryExistsKey(s->dictionary, s->token.str))
 	{
 		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_ACCEPTING;
 	}
@@ -1001,7 +1001,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 	StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
 
 	// Update conditional compilation state depending on the requested identifier exists or not
-	if (DictionaryGetKeyValue(s->dictionary, s->token.str) != NULL)
+	if (DictionaryExistsKey(s->dictionary, s->token.str))
 	{
 		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_ACCEPTING;
 	}

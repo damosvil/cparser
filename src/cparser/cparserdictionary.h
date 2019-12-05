@@ -16,6 +16,7 @@ typedef struct cparserdictionary_s cparserdictionary_t;
 cparserdictionary_t * DictionaryNew(void);
 void DictionaryRemoveKey(cparserdictionary_t *d, const uint8_t *key);
 void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const void *value);
+const bool DictionaryExistsKey(cparserdictionary_t *d, const uint8_t *key);
 const void * DictionaryGetKeyValue(cparserdictionary_t *d, const uint8_t *key);
 uint32_t DictionaryGetKeyCount(cparserdictionary_t *d);
 const uint8_t * DictionaryGetKeyByIndex(cparserdictionary_t *d, uint32_t ix);
