@@ -56,6 +56,7 @@ typedef enum preprocessor_state_e
 	PREPROCESSOR_STATE_INCLUDE_FILENAME,	// Parsing include filename
 	PREPROCESSOR_STATE_DEFINE_IDENTIFIER,	// Parsing define identifier
 	PREPROCESSOR_STATE_DEFINE_LITERAL,		// Parsing define literal or expression
+	PREPROCESSOR_STATE_UNDEF_IDENTIFIER,	// Parsing undef identifier
 	PREPROCESSOR_STATE_IFNDEF,				// Parsing ifndef identifier
 	PREPROCESSOR_STATE_IFDEF,				// Parsing ifdef identifier
 	PREPROCESSOR_STATE_ERROR,				// Parsing error string literal
@@ -482,6 +483,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_IDENTIFIER;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 		}
+		else if (StrEq(_t s->token.str, "undef"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_UNDEF_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
 		else if (StrEq(_t s->token.str, "pragma"))
 		{
 			__builtin_trap(); // TODO: pragma
@@ -559,6 +568,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
 			oo = ObjectGetParent(oo);											// Return to preprocessor
 			s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
+		else if (StrEq(_t s->token.str, "undef"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_UNDEF_IDENTIFIER;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
 		}
 		else if (StrEq(_t s->token.str, "pragma"))
@@ -771,7 +788,41 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_ACCEPTING_ELSE:
-		if (StrEq(_t s->token.str, "if"))
+		if (StrEq(_t s->token.str, "include"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE, &s->token);	// Add include to preprocessor
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->preprocessor_state = PREPROCESSOR_STATE_INCLUDE_FILENAME;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME;
+		}
+		else if (StrEq(_t s->token.str, "define"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, &s->token);	// Add define to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+			s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
+		else if (StrEq(_t s->token.str, "undef"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);											// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_UNDEF_IDENTIFIER;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
+		}
+		else if (StrEq(_t s->token.str, "pragma"))
+		{
+			__builtin_trap(); // TODO: pragma
+		}
+		else if (StrEq(_t s->token.str, "error"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ERROR, &s->token);	// Add error to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_ERROR;
+		}
+		else if (StrEq(_t s->token.str, "if"))
 		{
 			__builtin_trap(); // TODO: if
 		}
@@ -873,7 +924,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 	}
 	else
 	{
-		// Add define identifier and return to preprocessor
+		// Add define identifier
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
@@ -883,6 +934,49 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 		// Update state and prepare for parsing a define literal
 		s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_LITERAL;
 		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+	}
+
+	return oo;
+}
+
+static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t *s)
+{
+	if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
+	{
+		// Trying to define a c keyword
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Trying to undef a C keyword");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (StringInSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
+	{
+		// Trying to define a preprocessor keyword
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Trying to undef a preprocessor keyword");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (!DictionaryExistsKey(s->dictionary, s->token.str))
+	{
+		// Trying to redefine an already defined symbol
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_WARNING, &s->token);
+		oo->info = _T strdup("Trying to undef an unexisting symbol");
+		oo = ObjectGetParent(oo);
+		oo = ObjectGetParent(oo);
+	}
+	else
+	{
+		// Add undef identifier
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF_IDENTIFIER, &s->token);		// Add identifier to preprocessor
+
+		// Add define identifier to dictionary
+		DictionarySetKeyValue(s->dictionary, s->token.str, oo);							// Add definition to dictionary
+		oo = ObjectGetParent(oo);														// Return to preprocessor
+		oo = ObjectGetParent(oo);														// Return to preprocessor parent
+
+		// Return to IDLE preprocessor state
+		s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 	}
 
 	return oo;
@@ -1302,6 +1396,10 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			else if (s.preprocessor_state == PREPROCESSOR_STATE_ERROR)
 			{
 				oo = ProcessPreprocessorStateError(oo, &s);
+			}
+			else if (s.preprocessor_state == PREPROCESSOR_STATE_UNDEF_IDENTIFIER)
+			{
+				oo = ProcessPreprocessorStateUndefIdentifier(oo, &s);
 			}
 			else if (
 					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING) ||
