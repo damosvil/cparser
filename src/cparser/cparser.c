@@ -678,6 +678,10 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
 		if (StrEq(_t s->token.str, "if") || StrEq(_t s->token.str, "ifdef") || StrEq(_t s->token.str, "ifndef"))
 		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);													// Return to preprocessor
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+
 			// Return to IDLE preprocessor state
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
@@ -719,6 +723,10 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING_ELSE:
 		if (StrEq(_t s->token.str, "if") || StrEq(_t s->token.str, "ifdef") || StrEq(_t s->token.str, "ifndef"))
 		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectGetParent(oo);													// Return to preprocessor
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+
 			// Return to IDLE preprocessor state
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
