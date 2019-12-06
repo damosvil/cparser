@@ -636,6 +636,10 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 	case CONDITIONAL_COMPILATION_STATE_LOOKING:
 		if (StrEq(_t s->token.str, "if") || StrEq(_t s->token.str, "ifdef") || StrEq(_t s->token.str, "ifndef"))
 		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);	// Add if to preprocessor object
+			oo = ObjectGetParent(oo);													// Return to preprocessor
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+
 			// Return to IDLE preprocessor state
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
@@ -651,7 +655,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "else"))
 		{
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELSE, &s->token);	// Add endif to preprocessor object
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELSE, &s->token);	// Add else to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
@@ -690,7 +694,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "elif"))
 		{
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELSE, &s->token);	// Add endif to preprocessor object
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ELIF, &s->token);	// Add elif to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
@@ -723,7 +727,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING_ELSE:
 		if (StrEq(_t s->token.str, "if") || StrEq(_t s->token.str, "ifdef") || StrEq(_t s->token.str, "ifndef"))
 		{
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);	// Add endif to preprocessor object
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);	// Add if to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
@@ -1235,12 +1239,14 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 	// Check file exists
 	if (s.file == NULL)
 	{
+		// Add file not found error and set state to ERROR to force end parsing
 		oo->type = OBJECT_TYPE_ERROR;
 		oo->info = _T strdup("File not found");
+		s.state = STATE_ERROR;
 	}
 	else
 	{
-		// Set object data
+		// Set object data. At this point s.state is IDLE so parsing will start
 		oo->data = _T strdup(_t filename);
 	}
 
