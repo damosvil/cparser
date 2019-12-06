@@ -416,7 +416,8 @@ static object_t * ProcessCComment(object_t *oo, state_t *s)
 {
 	if (
 			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
-			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING) ||
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING_ELSE)
 		)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_C_COMMENT, &s->token);
@@ -430,7 +431,8 @@ static object_t * ProcessCppComment(object_t *oo, state_t *s)
 {
 	if (
 			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
-			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING)
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING) ||
+			(s->conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING_ELSE)
 		)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_CPP_COMMENT, &s->token);
@@ -1402,8 +1404,9 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 				oo = ProcessPreprocessorStateUndefIdentifier(oo, &s);
 			}
 			else if (
+					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
 					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING) ||
-					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE)
+					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_ACCEPTING_ELSE)
 					)
 			{
 				// Process parsing states
