@@ -10,7 +10,7 @@
 
 
 #define CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME		1
-#define CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL			2
+#define CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL			2
 #define CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER		4
 
 
@@ -40,7 +40,15 @@ typedef struct token_s
 	uint8_t *str;
 } token_t;
 
-bool TokenNext(FILE *f, token_t *tt, uint32_t flags);
+typedef int (*read_callback_t)(void *from);
+
+typedef struct token_source_s
+{
+	void *from;
+	read_callback_t read;
+} token_source_t;
+
+bool TokenNext(token_source_t *source, token_t *tt, uint32_t flags);
 
 
 #endif /* CPARSERTOKEN_H_ */

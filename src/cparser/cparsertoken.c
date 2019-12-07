@@ -36,9 +36,9 @@ static bool CharInSet(uint8_t c, const uint8_t *set)
 	return false;
 }
 
-static int16_t NextChar(FILE *f, uint32_t *p_row, uint32_t *p_column)
+static int16_t NextChar(token_source_t *source, uint32_t *p_row, uint32_t *p_column)
 {
-	int16_t res = fgetc(f);
+	int res = source->read(source->from);
 
 	if (res == '\n')
 	{
@@ -112,26 +112,26 @@ static bool ParseDefineFunctionParamsAcceptanceFilter(uint16_t last_char, uint32
  * \param[out]		str:	string buffer to put the digested bytes
  * \param[in]		filter:	Filter that returns true if the byte processed is valid
  */
-static void ParseDigestString(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, uint8_t *str, acceptance_filter_callback_t filter)
+static void ParseDigestString(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, uint8_t *str, acceptance_filter_callback_t filter)
 {
 	uint8_t *p = str;
 
 	// Copy first char to str
 	*p++ = *p_last_char;
-	*p_last_char = NextChar(f, p_row, p_column);
+	*p_last_char = NextChar(source, p_row, p_column);
 
 	// Copy identifier into str
 	while ((*p_last_char != EOF) && filter(*p_last_char, p - str, p) && ((p - str) < MAX_SENTENCE_LENGTH))
 	{
 		*p++ = *p_last_char;
-		*p_last_char = NextChar(f, p_row, p_column);
+		*p_last_char = NextChar(source, p_row, p_column);
 	}
 
 	// End str
 	*p = 0;
 }
 
-static void ParseDefineLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseDefineLiteral(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    DEFINE
 	tt->type = CPARSER_TOKEN_TYPE_DEFINE_LITERAL;
@@ -142,7 +142,7 @@ static void ParseDefineLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int
 	if (*p_last_char != '\r' && *p_last_char != '\n')
 	{
 		// Digest define literal with Cpp comment filter (they behave exactly the same)
-		ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseCppCommentAcceptanceFilter);
+		ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseCppCommentAcceptanceFilter);
 	}
 	else
 	{
@@ -151,7 +151,7 @@ static void ParseDefineLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int
 	}
 }
 
-static void ParseIncludeFilename(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseIncludeFilename(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// Include file name literal
 	tt->type = CPARSER_TOKEN_TYPE_INCLUDE_LITERAL;
@@ -159,10 +159,10 @@ static void ParseIncludeFilename(FILE *f, uint32_t *p_row, uint32_t *p_column, i
 	tt->column = *p_column;
 
 	// Digest include literal with include acceptance filter
-	ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseIncludeAcceptanceFilter);
+	ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseIncludeAcceptanceFilter);
 }
 
-static void ParseSingleCharToken(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseSingleCharToken(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Single char token
 	tt->type = CPARSER_TOKEN_TYPE_SINGLE_CHAR;
@@ -172,10 +172,10 @@ static void ParseSingleCharToken(FILE *f, uint32_t *p_row, uint32_t *p_column, i
 	tt->str[1] = 0;
 
 	// Prepare next char
-	*p_last_char = NextChar(f, p_row, p_column);
+	*p_last_char = NextChar(source, p_row, p_column);
 }
 
-static void ParseIdentifier(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseIdentifier(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Identifier
 	tt->type = CPARSER_TOKEN_TYPE_IDENTIFIER;
@@ -183,10 +183,10 @@ static void ParseIdentifier(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_
 	tt->column = *p_column;
 
 	// Digest identifier with identifier acceptance filter
-	ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseIdentifierAcceptanceFilter);
+	ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseIdentifierAcceptanceFilter);
 }
 
-static void ParseNumberLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseNumberLiteral(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    Number literal
 	tt->type = CPARSER_TOKEN_TYPE_NUMBER_LITERAL;
@@ -194,10 +194,10 @@ static void ParseNumberLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int
 	tt->column = *p_column;
 
 	// Digest number literal with number acceptance filter
-	ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseNumberLiteralAcceptanceFilter);
+	ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseNumberLiteralAcceptanceFilter);
 }
 
-static void ParseStringLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseStringLiteral(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>    String literal
 	tt->type = CPARSER_TOKEN_TYPE_STRING_LITERAL;
@@ -205,10 +205,10 @@ static void ParseStringLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int
 	tt->column = *p_column;
 
 	// Digest string literal with string acceptance filter
-	ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseStringLiteralAcceptanceFilter);
+	ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseStringLiteralAcceptanceFilter);
 }
 
-static void ParseCharLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseCharLiteral(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    Char literal
 	tt->type = CPARSER_TOKEN_TYPE_CHAR_LITERAL;
@@ -216,10 +216,10 @@ static void ParseCharLiteral(FILE *f, uint32_t *p_row, uint32_t *p_column, int16
 	tt->column = *p_column;
 
 	// Digest char literal with char acceptance filter
-	ParseDigestString(f, p_row, p_column, p_last_char, tt->str, ParseCharLiteralAcceptanceFilter);
+	ParseDigestString(source, p_row, p_column, p_last_char, tt->str, ParseCharLiteralAcceptanceFilter);
 }
 
-static void ParseDualOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseDualOperator(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    =, ==, +, ++, +=, -, --, -=, |, ||, |=, &, &&, &=, >, >=, >>
 	// Row and column correspond to operator
@@ -229,7 +229,7 @@ static void ParseDualOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, int1
 	tt->str[0] = *p_last_char;
 
 	// Prepare next char
-	*p_last_char = NextChar(f, p_row, p_column);
+	*p_last_char = NextChar(source, p_row, p_column);
 
 	if ((*p_last_char == tt->str[0]) || (*p_last_char == '='))
 	{
@@ -238,7 +238,7 @@ static void ParseDualOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, int1
 		tt->str[2] = 0;
 
 		// Prepare next char
-		*p_last_char = NextChar(f, p_row, p_column);
+		*p_last_char = NextChar(source, p_row, p_column);
 	}
 	else
 	{
@@ -247,7 +247,7 @@ static void ParseDualOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, int1
 	}
 }
 
-static void ParseSingleOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseSingleOperator(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>    *, *=, ^, ^=
 	// Row and column correspond to symbol
@@ -257,7 +257,7 @@ static void ParseSingleOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, in
 	tt->str[0] = *p_last_char;
 
 	// Prepare next char
-	*p_last_char = NextChar(f, p_row, p_column);
+	*p_last_char = NextChar(source, p_row, p_column);
 
 	if (*p_last_char == '=')
 	{
@@ -266,7 +266,7 @@ static void ParseSingleOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, in
 		tt->str[2] = 0;
 
 		// Prepare next char
-		*p_last_char = NextChar(f, p_row, p_column);
+		*p_last_char = NextChar(source, p_row, p_column);
 	}
 	else
 	{
@@ -275,7 +275,7 @@ static void ParseSingleOperator(FILE *f, uint32_t *p_row, uint32_t *p_column, in
 	}
 }
 
-static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseSlash(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>    /, /=, /*, //
 	// Row and column correspond to symbol
@@ -284,7 +284,7 @@ static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_
 	tt->str[0] = *p_last_char;
 
 	// Prepare next char
-	*p_last_char = NextChar(f, p_row, p_column);
+	*p_last_char = NextChar(source, p_row, p_column);
 
 	if (*p_last_char == '=')
 	{
@@ -294,7 +294,7 @@ static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_
 		tt->str[2] = 0;
 
 		// Prepare next char
-		*p_last_char = NextChar(f, p_row, p_column);
+		*p_last_char = NextChar(source, p_row, p_column);
 	}
 	else if (*p_last_char == '*')
 	{
@@ -302,7 +302,7 @@ static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_
 		tt->type = CPARSER_TOKEN_TYPE_C_COMMENT;
 
 		// Append comment string to str
-		ParseDigestString(f, p_row, p_column, p_last_char, tt->str + 1, ParseCCommentAcceptanceFilter);
+		ParseDigestString(source, p_row, p_column, p_last_char, tt->str + 1, ParseCCommentAcceptanceFilter);
 	}
 	else if (*p_last_char == '/')
 	{
@@ -310,7 +310,7 @@ static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_
 		tt->type = CPARSER_TOKEN_TYPE_CPP_COMMENT;
 
 		// Append comment string to str
-		ParseDigestString(f, p_row, p_column, p_last_char, tt->str + 1, ParseCppCommentAcceptanceFilter);
+		ParseDigestString(source, p_row, p_column, p_last_char, tt->str + 1, ParseCppCommentAcceptanceFilter);
 	}
 	else
 	{
@@ -320,7 +320,7 @@ static void ParseSlash(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_
 	}
 }
 
-static void ParseInvalidCharacter(FILE *f, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
+static void ParseInvalidCharacter(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Invalid character
 	tt->type = CPARSER_TOKEN_TYPE_INVALID;
@@ -330,17 +330,17 @@ static void ParseInvalidCharacter(FILE *f, uint32_t *p_row, uint32_t *p_column, 
 	tt->str[1] = 0;
 }
 
-bool TokenNext(FILE *f, token_t *tt, uint32_t flags)
+bool TokenNext(token_source_t *source, token_t *tt, uint32_t flags)
 {
 	static uint32_t row = 1, column = 0;
 	static int16_t last_char = 0;
 	bool res = true;
 
-	// In the beginning read next char
+	// In the beginning source next char
 	if (row == 1 && column == 0)
 	{
 		tt->first_token_in_line = true;			// In the beginning first token in line shall be true
-		last_char = NextChar(f, &row, &column);
+		last_char = NextChar(source, &row, &column);
 	}
 	else
 	{
@@ -349,12 +349,12 @@ bool TokenNext(FILE *f, token_t *tt, uint32_t flags)
 	}
 
 	// Skip empty chars if define literal (they can be empty)
-	if (flags & CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL)
+	if (flags & CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL)
 	{
 		// Skip spaces and tabs
 		while (last_char == ' ' || last_char == '\t')
 		{
-			last_char = NextChar(f, &row, &column);
+			last_char = NextChar(source, &row, &column);
 		}
 	}
 	else
@@ -363,77 +363,77 @@ bool TokenNext(FILE *f, token_t *tt, uint32_t flags)
 		while (CharInSet(last_char, set_empty_chars))
 		{
 			tt->first_token_in_line |= last_char == '\n';
-			last_char = NextChar(f, &row, &column);
+			last_char = NextChar(source, &row, &column);
 		}
 	}
 
 	// Token discovery
-	if (flags & CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL)
+	if (flags & CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL)
 	{
 		// Define literal
-		ParseDefineLiteral(f, &row, &column, &last_char, tt);
+		ParseDefineLiteral(source, &row, &column, &last_char, tt);
 	}
 	else if (flags & CPARSER_TOKEN_FLAG_PARSE_INCLUDE_FILENAME)
 	{
 		// Include file name literal
-		ParseIncludeFilename(f, &row, &column, &last_char, tt);
+		ParseIncludeFilename(source, &row, &column, &last_char, tt);
 	}
 	else if (flags & CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER)
 	{
 		// Preprocessor token
-		ParseIdentifier(f, &row, &column, &last_char, tt);
+		ParseIdentifier(source, &row, &column, &last_char, tt);
 
 		// Check define function macro
 		if (last_char == '(')
 		{
 			// Add macro function parameters to definition identifier
-			ParseDigestString(f, &row, &column, &last_char, tt->str + strlen(_t tt->str), ParseDefineFunctionParamsAcceptanceFilter);
+			ParseDigestString(source, &row, &column, &last_char, tt->str + strlen(_t tt->str), ParseDefineFunctionParamsAcceptanceFilter);
 		}
 	}
 	else if (CharInSet(last_char, set_single_char_token_chars))
 	{
 		// Single char token
-		ParseSingleCharToken(f, &row, &column, &last_char, tt);
+		ParseSingleCharToken(source, &row, &column, &last_char, tt);
 	}
 	else if (CharInSet(last_char, set_lead_identifier_chars))
 	{
 		// Identifier token
-		ParseIdentifier(f, &row, &column, &last_char, tt);
+		ParseIdentifier(source, &row, &column, &last_char, tt);
 	}
 	else if (CharInSet(last_char, set_lead_number_literal_chars))
 	{
 		// Number literal token
-		ParseNumberLiteral(f, &row, &column, &last_char, tt);
+		ParseNumberLiteral(source, &row, &column, &last_char, tt);
 	}
 	else if (last_char == '\"')
 	{
 		// String literal token
-		ParseStringLiteral(f, &row, &column, &last_char, tt);
+		ParseStringLiteral(source, &row, &column, &last_char, tt);
 	}
 	else if (last_char == '\'')
 	{
 		// Character literal token
-		ParseCharLiteral(f, &row, &column, &last_char, tt);
+		ParseCharLiteral(source, &row, &column, &last_char, tt);
 	}
 	else if (CharInSet(last_char, set_dual_operator_chars))
 	{
 		// Dual operator token
-		ParseDualOperator(f, &row, &column, &last_char, tt);
+		ParseDualOperator(source, &row, &column, &last_char, tt);
 	}
 	else if (CharInSet(last_char, set_single_operator_chars))
 	{
 		// Single operator token
-		ParseSingleOperator(f, &row, &column, &last_char, tt);
+		ParseSingleOperator(source, &row, &column, &last_char, tt);
 	}
 	else if (last_char == '/')
 	{
 		// Slash token
-		ParseSlash(f, &row, &column, &last_char, tt);
+		ParseSlash(source, &row, &column, &last_char, tt);
 	}
 	else
 	{
 		// Invalid character
-		ParseInvalidCharacter(f, &row, &column, &last_char, tt);
+		ParseInvalidCharacter(source, &row, &column, &last_char, tt);
 		res = false;
 	}
 

@@ -59,6 +59,7 @@ typedef enum preprocessor_state_e
 	PREPROCESSOR_STATE_UNDEF_IDENTIFIER,	// Parsing undef identifier
 	PREPROCESSOR_STATE_IFNDEF,				// Parsing ifndef identifier
 	PREPROCESSOR_STATE_IFDEF,				// Parsing ifdef identifier
+	PREPROCESSOR_STATE_IF_LITERAL,			// Parsing if expression as literal
 	PREPROCESSOR_STATE_ERROR,				// Parsing error string literal
 } preprocessor_state_t;
 
@@ -507,7 +508,11 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "if"))
 		{
-			__builtin_trap(); // TODO: if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_IF_LITERAL;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL;
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
@@ -594,7 +599,11 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "if"))
 		{
-			__builtin_trap(); // TODO: if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_IF_LITERAL;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL;
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
@@ -826,7 +835,11 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token.str, "if"))
 		{
-			__builtin_trap(); // TODO: if
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, &s->token);		// Add undef to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			s->preprocessor_state = PREPROCESSOR_STATE_IF_LITERAL;
+			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL;
 		}
 		else if (StrEq(_t s->token.str, "ifdef"))
 		{
@@ -935,7 +948,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 
 		// Update state and prepare for parsing a define literal
 		s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_LITERAL;
-		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_LITERAL;
+		s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_PREPROCESSOR_LITERAL;
 	}
 
 	return oo;
@@ -982,6 +995,11 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 	}
 
 	return oo;
+}
+
+static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
+{
+	__builtin_trap(); // TODO: if literal
 }
 
 static object_t * ProcessPreprocessorStateDefineLiteral(object_t *oo, state_t *s)
@@ -1346,8 +1364,13 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 		oo->data = _T strdup(_t filename);
 	}
 
+	// Prepare tokens source
+	token_source_t source;
+	source.from = s.file;
+	source.read = (read_callback_t)fgetc;
+
 	// Process tokens from file
-	while ((s.state != STATE_ERROR) && TokenNext(s.file, &s.token, s.tokenizer_flags))
+	while ((s.state != STATE_ERROR) && TokenNext(&source, &s.token, s.tokenizer_flags))
 	{
 		// Reset flags after read
 		s.tokenizer_flags = 0;
@@ -1402,6 +1425,10 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			else if (s.preprocessor_state == PREPROCESSOR_STATE_UNDEF_IDENTIFIER)
 			{
 				oo = ProcessPreprocessorStateUndefIdentifier(oo, &s);
+			}
+			else if (s.preprocessor_state == PREPROCESSOR_STATE_IF_LITERAL)
+			{
+				oo = ProcessPreprocessorStateIfLiteral(oo, &s);
 			}
 			else if (
 					(s.conditional_compilation_state == CONDITIONAL_COMPILATION_STATE_IDLE) ||
