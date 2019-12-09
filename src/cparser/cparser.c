@@ -16,6 +16,7 @@
 #include "cparserobject.h"
 #include "cparserdictionary.h"
 #include "cparserstack.h"
+#include "cparserexpression.h"
 #include "cparser.h"
 
 #define KEYWORDS_C_COUNT				34
@@ -999,6 +1000,8 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
+	ExpressionEvalPreprocessor(NULL, s->token.str);
+
 	__builtin_trap(); // TODO: if literal
 
 	return oo;

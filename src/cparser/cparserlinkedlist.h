@@ -14,7 +14,7 @@ typedef struct cparserlinkedlist_s cparserlinkedlist_t;
 
 
 cparserlinkedlist_t *LinkedListNew(void *item);
-void LinkedListDelete(cparserlinkedlist_t *l);
+cparserlinkedlist_t *LinkedListDelete(cparserlinkedlist_t *l);
 cparserlinkedlist_t *LinkedListFirst(cparserlinkedlist_t *l);
 cparserlinkedlist_t *LinkedListLast(cparserlinkedlist_t *l);
 cparserlinkedlist_t *LinkedListPrevious(cparserlinkedlist_t *l);

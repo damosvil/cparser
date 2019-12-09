@@ -9,7 +9,7 @@
 #define CPARSEREXPRESSION_H_
 
 
-bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const char *expression);
+bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression);
 
 
 #endif /* CPARSEREXPRESSION_H_ */

@@ -40,12 +40,16 @@ typedef struct token_s
 	uint8_t *str;
 } token_t;
 
+// Source read callback function
+// returns: last byte read or EOF if no more bytes avaliable
+// parameters: from: data source for this callback function
 typedef int (*read_callback_t)(void *from);
 
+// Token source
 typedef struct token_source_s
 {
-	void *from;
-	read_callback_t read;
+	void *from;					// Data source that TokenNext will use to read bytes from with "read" callback function
+	read_callback_t read;		// Callback to read data source
 } token_source_t;
 
 bool TokenNext(token_source_t *source, token_t *tt, uint32_t flags);
