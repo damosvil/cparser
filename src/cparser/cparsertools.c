@@ -71,3 +71,18 @@ void AddToPtrArray(void *data, void ***p_array, uint32_t *p_size, uint32_t *p_co
 	(*p_array)[*p_count] = data;
 	*p_count = *p_count + 1;
 }
+
+static int CompareStringInSet(const void *a, const void *b)
+{
+	char **aa = (char **)a;
+	char **bb = (char **)b;
+
+	return strcmp(*aa, *bb);
+}
+
+bool StringInAscendingSet(const uint8_t *string, const uint8_t **set, uint32_t lenght)
+{
+	return bsearch(&string, set, lenght, sizeof(uint8_t *), CompareStringInSet) != NULL;
+}
+
+

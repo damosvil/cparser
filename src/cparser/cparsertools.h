@@ -24,6 +24,7 @@ const bool StrEq(const char *u, const char *v);
 bool IsCHeaderFilename(const uint8_t *filename);
 bool IsCSourceFilename(const uint8_t *filename);
 void AddToPtrArray(void *data, void ***p_array, uint32_t *p_size, uint32_t *p_count);
+bool StringInAscendingSet(const uint8_t *string, const uint8_t **set, uint32_t lenght);
 
 
 #endif /* CPARSERTOOLS_H_ */

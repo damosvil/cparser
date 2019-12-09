@@ -23,7 +23,7 @@ static const uint8_t * set_identifier_chars = _T "_abcdefghijklmnopqrstuvwxyzABC
 static const uint8_t * set_lead_number_literal_chars = _T "01234567890";
 static const uint8_t * set_number_literal_chars = _T "0123456789xXbB.fFeEuUlL";
 static const uint8_t * set_dual_operator_chars = _T "+-=&|><";
-static const uint8_t * set_single_operator_chars = _T "*^~!";
+static const uint8_t * set_single_operator_chars = _T "*%^~!";
 static const uint8_t * set_single_char_token_chars = _T "?:;,.#()[]{}";
 
 
@@ -249,7 +249,7 @@ static void ParseDualOperator(token_source_t *source, uint32_t *p_row, uint32_t 
 
 static void ParseSingleOperator(token_source_t *source, uint32_t *p_row, uint32_t *p_column, int16_t *p_last_char, token_t *tt)
 {
-	// >>>>>>>>>>>>>>>>>>>>>>>    *, *=, ^, ^=
+	// >>>>>>>>>>>>>>>>>>>>>>>    *, *=, %, %=, ^, ^=, !, !=, ~, ~=
 	// Row and column correspond to symbol
 	tt->type = CPARSER_TOKEN_TYPE_OPERATOR;
 	tt->row = *p_row;

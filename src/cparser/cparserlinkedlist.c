@@ -109,6 +109,8 @@ cparserlinkedlist_t *LinkedListInsertBefore(cparserlinkedlist_t *l, void *item)
 	new = malloc(sizeof(cparserlinkedlist_t));
 	new->item = item;
 	new->previous = l->previous;
+	new->next = l;
+
 	l->previous = new;
 
 	return new;
@@ -123,7 +125,9 @@ cparserlinkedlist_t *LinkedListInsertAfter(cparserlinkedlist_t *l, void *item)
 
 	new = malloc(sizeof(cparserlinkedlist_t));
 	new->item = item;
+	new->previous = l;
 	new->next = l->next;
+
 	l->next = new;
 
 	return new;

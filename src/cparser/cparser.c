@@ -130,19 +130,6 @@ static const uint8_t *keywords_preprocessor[KEYWORDS_PREPROCESSOR_COUNT] =
 };
 
 
-static int CompareStringInSet(const void *a, const void *b)
-{
-	char *aa = (char *)a;
-	char *bb = (char *)b;
-
-	return strcmp(aa, bb);
-}
-
-static bool StringInSet(const uint8_t *string, const uint8_t **set, uint32_t lenght)
-{
-	return bsearch(string, set, lenght, sizeof(uint8_t *), CompareStringInSet) != NULL;
-}
-
 static object_t * DigestDataType(object_t *oo, state_t *s)
 {
 	static uint32_t eflags = EFLAGS_NONE;
@@ -331,7 +318,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 	}
 	else if (s->token.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 	{
-		if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
+		if (StringInAscendingSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 		{
 			// Detected C keyword
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -914,7 +901,7 @@ static object_t * ProcessPreprocessorStateIncludeFilename(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t *s)
 {
-	if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
+	if (StringInAscendingSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 	{
 		// Trying to define a c keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -922,7 +909,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (StringInSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
+	else if (StringInAscendingSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
 	{
 		// Trying to define a preprocessor keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -957,7 +944,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 
 static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t *s)
 {
-	if (StringInSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
+	if (StringInAscendingSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 	{
 		// Trying to define a c keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -965,7 +952,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (StringInSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
+	else if (StringInAscendingSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
 	{
 		// Trying to define a preprocessor keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
