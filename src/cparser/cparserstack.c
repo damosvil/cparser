@@ -46,7 +46,7 @@ void StackDelete(cparserstack_t *s)
 void StackPush(cparserstack_t *s, const void *data)
 {
 	// Skip if no data
-	if (s->size == 0)
+	if (s == NULL || data == NULL)
 		return;
 
 	// Check data size
@@ -77,7 +77,7 @@ void StackPush(cparserstack_t *s, const void *data)
 bool StackPop(cparserstack_t *s, void *data)
 {
 	// Skip if no destination buffer, not enough room or not enough data in stack
-	if (data == NULL || s->count == 0)
+	if (s == NULL || data == NULL || s->count == 0)
 		return false;
 
 	// Decrease stack count
