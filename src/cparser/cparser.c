@@ -649,7 +649,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Pop conditional compilation state
-			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		else
 		{
@@ -672,7 +672,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Increase conditional compilation stack level
-			StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 			// Go directly to skipping conditional compilation state
 			s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_SKIPPING;
@@ -703,7 +703,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Pop conditional compilation state
-			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		break;
 
@@ -718,7 +718,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Increase conditional compilation stack level
-			StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		else if (StrEq(_t s->token.str, "elif"))
 		{
@@ -748,7 +748,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Pop conditional compilation state
-			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		break;
 
@@ -763,7 +763,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Increase conditional compilation stack level
-			StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 			// Go directly to skipping conditional compilation state
 			s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_SKIPPING;
@@ -794,7 +794,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Pop conditional compilation state
-			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		break;
 
@@ -881,7 +881,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 			// Pop conditional compilation state
-			StackPopBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
 		}
 		break;
 
@@ -1000,6 +1000,8 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
 	__builtin_trap(); // TODO: if literal
+
+	return oo;
 }
 
 static object_t * ProcessPreprocessorStateDefineLiteral(object_t *oo, state_t *s)
@@ -1272,7 +1274,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 	// Increase conditional compilation stack level
-	StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+	StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 	// Update conditional compilation state depending on the requested identifier exists or not
 	if (!DictionaryExistsKey(s->dictionary, s->token.str))
@@ -1297,7 +1299,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 	// Increase conditional compilation stack level
-	StackPushBytes(s->conditional_compilation_stack, &s->conditional_compilation_state, sizeof(s->conditional_compilation_state));
+	StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 	// Update conditional compilation state depending on the requested identifier exists or not
 	if (DictionaryExistsKey(s->dictionary, s->token.str))
@@ -1333,7 +1335,7 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 	state_t s = {
 			NULL, STATE_IDLE, PREPROCESSOR_STATE_IDLE, dictionary, paths, 0,
 			{ CPARSER_TOKEN_TYPE_INVALID, false, 0, 0, malloc(MAX_SENTENCE_LENGTH + 10) },
-			StackNew(), CONDITIONAL_COMPILATION_STATE_IDLE };
+			StackNew(sizeof(conditional_compilation_state_t)), CONDITIONAL_COMPILATION_STATE_IDLE };
 
 	// Create root parse object
 	oo = ObjectAddChildFromToken(NULL, IsCHeaderFilename(filename) ? OBJECT_TYPE_HEADER_FILE : OBJECT_TYPE_SOURCE_FILE, NULL);

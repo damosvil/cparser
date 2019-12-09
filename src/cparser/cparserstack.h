@@ -13,10 +13,10 @@ struct cparserstack_s;
 typedef struct cparserstack_s cparserstack_t;
 
 
-cparserstack_t *StackNew(void);
+cparserstack_t *StackNew(size_t item_size);
 void StackDelete(cparserstack_t *s);
-void StackPushBytes(cparserstack_t *s, const void *data, size_t size);
-bool StackPopBytes(cparserstack_t *s, void *data, size_t size);
+void StackPush(cparserstack_t *s, const void *data);
+bool StackPop(cparserstack_t *s, void *data);
 
 
 #endif /* CPARSER_CPARSERSTACK_H_ */
