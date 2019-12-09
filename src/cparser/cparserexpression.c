@@ -37,7 +37,7 @@ bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *exp
 	token_source_t source = { &expression, GetNextChar };
 	cparserlinkedlist_t *list = NULL;
 
-	while (TokenNext(&source, &tt, 0))
+	while ((tt.type != CPARSER_TOKEN_TYPE_INVALID) && TokenNext(&source, &tt, 0))
 	{
 		if (list == NULL)
 		{

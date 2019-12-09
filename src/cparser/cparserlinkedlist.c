@@ -8,6 +8,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "cparserlinkedlist.h"
 
 
@@ -149,4 +150,19 @@ void *LinkedListUpdateItem(cparserlinkedlist_t *l, void *item)
 	return res;
 }
 
+void LinkedListPrint(cparserlinkedlist_t *l)
+{
+	char *p;
+	while (l->previous)
+		l = l->previous;
 
+	while (l)
+	{
+		p = l->item;
+		l = l->next;
+
+		printf("%s ", p);
+	}
+
+	printf("\n");
+}
