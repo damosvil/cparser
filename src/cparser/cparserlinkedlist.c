@@ -153,24 +153,3 @@ void *LinkedListUpdateItem(cparserlinkedlist_t *l, void *item)
 
 	return res;
 }
-
-void LinkedListPrint(cparserlinkedlist_t *l)
-{
-	char *p;
-
-	if (l == NULL)
-		return;
-
-	while (l->previous)
-		l = l->previous;
-
-	while (l)
-	{
-		p = l->item;
-		l = l->next;
-
-		printf("%s ", p);
-	}
-
-	printf("\n");
-}

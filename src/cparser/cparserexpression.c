@@ -19,6 +19,24 @@
 
 
 #define VALID_OPERATORS_COUNT			19
+#define STR(A)							(#A)
+
+
+typedef enum expression_token_type_e
+{
+	EXPRESSION_TOKEN_TYPE_DEFINED,
+	EXPRESSION_TOKEN_TYPE_IDENTIFIER,
+	EXPRESSION_TOKEN_TYPE_OPERATOR,
+	EXPRESSION_TOKEN_TYPE_OPEN,
+	EXPRESSION_TOKEN_TYPE_CLOSE,
+	EXPRESSION_TOKEN_TYPE_DECODED_VALUE
+} expression_token_type_t;
+
+typedef struct expression_token_s
+{
+	expression_token_type_t type;
+	void *data;
+} expression_token_t;
 
 
 static const uint8_t *valid_operators[VALID_OPERATORS_COUNT] = {
@@ -27,7 +45,6 @@ static const uint8_t *valid_operators[VALID_OPERATORS_COUNT] = {
 		_T "<", _T "<<", _T "<=", _T "==", _T ">", _T ">=", _T ">>",
 		_T "^", _T "|",  _T "||", _T "~"
 };
-
 
 static int GetNextChar(void *data)
 {
@@ -43,11 +60,87 @@ static int GetNextChar(void *data)
 	return res;
 }
 
+static void ExpressionTokenDelete(expression_token_t *et)
+{
+	if (et == NULL)
+		return;
+
+	// Delete expression token data and token
+	if ((et->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE) && (et->data != NULL))
+		free(et->data);
+	free(et);
+}
+
+static void LinkedExpressionListDelete(cparserlinkedlist_t *l)
+{
+	expression_token_t *et = NULL;
+
+	while (l != NULL)
+	{
+		// Get expression token
+		et = LinkedListGetItem(l);
+
+		ExpressionTokenDelete(et);
+
+		// Delete linked list node
+		l = LinkedListDelete(l);
+	}
+}
+
+static void LinkedExpressionListPrint(cparserlinkedlist_t *l)
+{
+	expression_token_t *et = NULL;
+
+	l = LinkedListFirst(l);
+
+	while (l != NULL)
+	{
+		et = LinkedListGetItem(l);
+
+		switch (et->type)
+		{
+
+		case EXPRESSION_TOKEN_TYPE_DEFINED:
+			printf("<%s:defined> ", STR(EXPRESSION_TOKEN_TYPE_DEFINED));
+			break;
+
+		case EXPRESSION_TOKEN_TYPE_IDENTIFIER:
+			printf("<%s:%s> ", STR(EXPRESSION_TOKEN_TYPE_IDENTIFIER), (char *)et->data);
+			break;
+
+		case EXPRESSION_TOKEN_TYPE_OPERATOR:
+			printf("<%s:%s> ", STR(EXPRESSION_TOKEN_TYPE_OPERATOR), (char *)et->data);
+			break;
+
+		case EXPRESSION_TOKEN_TYPE_OPEN:
+			printf("<%s:(> ", STR(EXPRESSION_TOKEN_TYPE_OPEN));
+			break;
+
+		case EXPRESSION_TOKEN_TYPE_CLOSE:
+			printf("<%s:)> ", STR(EXPRESSION_TOKEN_TYPE_CLOSE));
+			break;
+
+		case EXPRESSION_TOKEN_TYPE_DECODED_VALUE:
+			printf("<%s:%ld> ", STR(EXPRESSION_TOKEN_TYPE_DECODED_VALUE), (long int)et->data);
+			break;
+
+		default:
+			break;
+
+		}
+
+		l = LinkedListNext(l);
+	}
+
+	printf("\n");
+}
+
 static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 {
 	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, 1, 0, malloc(strlen(_t expression) + 1) };
 	token_source_t source = { &expression, GetNextChar };
 	cparserlinkedlist_t *l = NULL;
+	expression_token_t *et = NULL;
 	bool error = false;
 
 	while (TokenNext(&source, &tt, 0))
@@ -56,23 +149,47 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 		if ((tt.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) || (tt.type == CPARSER_TOKEN_TYPE_C_COMMENT))
 			continue;
 
-		// Error
-		error = (tt.type == CPARSER_TOKEN_TYPE_INVALID) ||
-				(tt.type == CPARSER_TOKEN_TYPE_STRING_LITERAL) ||
-				(tt.type == CPARSER_TOKEN_TYPE_DEFINE_LITERAL) ||
-				(tt.type == CPARSER_TOKEN_TYPE_INCLUDE_LITERAL) ||
-				(tt.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR && tt.str[0] != '(' && tt.str[0] != ')') ||
-				(tt.type == CPARSER_TOKEN_TYPE_OPERATOR && !StringInAscendingSet(tt.str, valid_operators, VALID_OPERATORS_COUNT));
-		if (error)
-			break;
-
-		if (l == NULL)
+		if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 		{
-			l = LinkedListNew(strdup(_t tt.str));
+			et = malloc(sizeof(expression_token_t));
+
+			if (StrEq("defined", _t tt.str))
+			{
+				et->type = EXPRESSION_TOKEN_TYPE_DEFINED;
+				et->data = NULL;
+			}
+			else
+			{
+				et->type = EXPRESSION_TOKEN_TYPE_IDENTIFIER;
+				et->data = strdup(_t tt.str);
+			}
+		}
+		else if ((tt.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR) && ((tt.str[0] == '(') || (tt.str[0] == ')')))
+		{
+			et = malloc(sizeof(expression_token_t));
+			et->type = tt.str[0] == '(' ? EXPRESSION_TOKEN_TYPE_OPEN : EXPRESSION_TOKEN_TYPE_CLOSE;
+			et->data = NULL;
+		}
+		else if ((tt.type == CPARSER_TOKEN_TYPE_OPERATOR) && StringInAscendingSet(tt.str, valid_operators, VALID_OPERATORS_COUNT))
+		{
+			et = malloc(sizeof(expression_token_t));
+			et->type = EXPRESSION_TOKEN_TYPE_OPERATOR;
+			et->data = strdup(_t tt.str);
 		}
 		else
 		{
-			l = LinkedListInsertAfter(l, strdup(_t tt.str));
+			error = true;
+			break;
+		}
+
+		// Add expression token to list
+		if (l == NULL)
+		{
+			l = LinkedListNew(et);
+		}
+		else
+		{
+			l = LinkedListInsertAfter(l, et);
 		}
 	}
 
@@ -81,13 +198,7 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 
 	// On error destroy linked list
 	if (error)
-	{
-		while (l != NULL)
-		{
-			free(LinkedListGetItem(l));
-			l = LinkedListDelete(l);
-		}
-	}
+		LinkedExpressionListDelete(l);
 
 	return !error ? LinkedListFirst(l) : NULL;
 }
@@ -98,19 +209,15 @@ cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictio
 	cparserlinkedlist_t *list = ExpressionToLinkedList(expression);
 
 	if (list == NULL)
-	{
 		return EXPRESSION_PREPROCESSOR_RESULT_ERROR;
-	}
 
-	LinkedListPrint(list);
-	__builtin_trap(); // TODO: if literal
+	// Print linked expression list
+	LinkedExpressionListPrint(list);
 
 	// Free list
-	while (list != NULL)
-	{
-		free(LinkedListGetItem(list));
-		list = LinkedListDelete(list);
-	}
+	LinkedExpressionListDelete(list);
+
+	__builtin_trap(); // TODO: if literal
 
 	return res;
 }

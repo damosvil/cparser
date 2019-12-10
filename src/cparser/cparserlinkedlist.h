@@ -23,7 +23,6 @@ cparserlinkedlist_t *LinkedListInsertBefore(cparserlinkedlist_t *l, void *item);
 cparserlinkedlist_t *LinkedListInsertAfter(cparserlinkedlist_t *l, void *item);
 void *LinkedListGetItem(cparserlinkedlist_t *l);
 void *LinkedListUpdateItem(cparserlinkedlist_t *l, void *item);
-void LinkedListPrint(cparserlinkedlist_t *l);
 
 
 #endif /* CPARSER_CPARSERLINKEDLIST_H_ */
