@@ -135,6 +135,105 @@ static void LinkedExpressionListPrint(cparserlinkedlist_t *l)
 	printf("\n");
 }
 
+static cparserexpression_preprocessor_result_t LinkedExpressionListEvalDefined(cparserlinkedlist_t *l, cparserdictionary_t *defines)
+{
+	enum eval_defined_state_e
+	{
+		EVAL_DEFINED_STATE_IDLE = 0,
+		EVAL_DEFINED_STATE_LOOKING
+	} state = EVAL_DEFINED_STATE_IDLE;
+
+	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_FALSE;
+	expression_token_t *et = NULL;
+	uint32_t level = 0;
+
+	// Get first linked list token
+	l = LinkedListFirst(l);
+
+	while ((l != NULL) && (res != EXPRESSION_PREPROCESSOR_RESULT_ERROR))
+	{
+		// Get item from linked list node
+		et = LinkedListGetItem(l);
+
+		// Skip tokens other than defined operator
+		switch (state)
+		{
+
+		case EVAL_DEFINED_STATE_IDLE:
+			if (et->type == EXPRESSION_TOKEN_TYPE_DEFINED)
+			{
+				state = EVAL_DEFINED_STATE_LOOKING;
+			}
+
+			// Move to next linked list node
+			l = LinkedListNext(l);
+			break;
+
+		case EVAL_DEFINED_STATE_LOOKING:
+			if (et->type == EXPRESSION_TOKEN_TYPE_OPEN)
+			{
+				// Increase level
+				level++;
+
+				// Remove parenthesis
+				ExpressionTokenDelete(et);
+				l = LinkedListDelete(l);
+			}
+			else if (et->type == EXPRESSION_TOKEN_TYPE_IDENTIFIER)
+			{
+				// Replace previous define and definition identifier by a boolean decoded value
+				uint64_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
+				cparserlinkedlist_t *defined = LinkedListPrevious(l);
+
+				// Remove identifier
+				ExpressionTokenDelete(LinkedListGetItem(l));
+				l = LinkedListDelete(l);
+
+				// Check and delete trailing close parenthesis
+				while (level)
+				{
+					et = LinkedListGetItem(l);
+					if (et->type != EXPRESSION_TOKEN_TYPE_CLOSE)
+						break;
+
+					ExpressionTokenDelete(et);
+					l = LinkedListDelete(l);
+					level--;
+				}
+
+				// Update defined operator by removing previous expression token and creating a decoded value
+				if (level == 0)
+				{
+					et = LinkedListGetItem(defined);
+					ExpressionTokenDelete(et);
+					et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+					et->data = (void *)value;
+				}
+				else
+				{
+					// Syntax error: incorrect number of closing parenthesis
+					res = EXPRESSION_PREPROCESSOR_RESULT_ERROR;
+				}
+
+				// Select next linked list token
+				l = LinkedListNext(defined);
+			}
+			else
+			{
+				// Syntax error: defined operator syntax error
+				res = EXPRESSION_PREPROCESSOR_RESULT_ERROR;
+			}
+			break;
+
+		default:
+			break;
+
+		}
+	}
+
+	return res;
+}
+
 static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 {
 	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, 1, 0, malloc(strlen(_t expression) + 1) };
@@ -210,6 +309,12 @@ cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictio
 
 	if (list == NULL)
 		return EXPRESSION_PREPROCESSOR_RESULT_ERROR;
+
+	// Print linked expression list
+	LinkedExpressionListPrint(list);
+
+	// Eval definitions
+	res = LinkedExpressionListEvalDefined(list, defines);
 
 	// Print linked expression list
 	LinkedExpressionListPrint(list);

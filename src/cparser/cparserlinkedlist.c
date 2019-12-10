@@ -50,7 +50,7 @@ cparserlinkedlist_t * LinkedListDelete(cparserlinkedlist_t *l)
 	{
 		next->previous = prev;
 		prev->next = next;
-		res = prev;
+		res = next;
 	}
 	else if (next)
 	{
