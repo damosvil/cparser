@@ -105,13 +105,6 @@ cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictio
 	LinkedListPrint(list);
 	__builtin_trap(); // TODO: if literal
 
-	// Free allocated double linked list and the items it contains
-	while (list != NULL)
-	{
-		free(LinkedListGetItem(list));
-		list = LinkedListDelete(list);
-	}
-
 	// Free list
 	while (list != NULL)
 	{
