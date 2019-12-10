@@ -43,11 +43,11 @@ static int GetNextChar(void *data)
 	return res;
 }
 
-bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression)
+static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 {
 	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, 1, 0, malloc(strlen(_t expression) + 1) };
 	token_source_t source = { &expression, GetNextChar };
-	cparserlinkedlist_t *list = NULL;
+	cparserlinkedlist_t *l = NULL;
 	bool error = false;
 
 	while (TokenNext(&source, &tt, 0))
@@ -66,14 +66,40 @@ bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *exp
 		if (error)
 			break;
 
-		if (list == NULL)
+		if (l == NULL)
 		{
-			list = LinkedListNew(strdup(_t tt.str));
+			l = LinkedListNew(strdup(_t tt.str));
 		}
 		else
 		{
-			list = LinkedListInsertAfter(list, strdup(_t tt.str));
+			l = LinkedListInsertAfter(l, strdup(_t tt.str));
 		}
+	}
+
+	// Destroy allocated token buffer
+	free(tt.str);
+
+	// On error destroy linked list
+	if (error)
+	{
+		while (l != NULL)
+		{
+			free(LinkedListGetItem(l));
+			l = LinkedListDelete(l);
+		}
+	}
+
+	return !error ? LinkedListFirst(l) : NULL;
+}
+
+cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression)
+{
+	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_FALSE;
+	cparserlinkedlist_t *list = ExpressionToLinkedList(expression);
+
+	if (list == NULL)
+	{
+		return EXPRESSION_PREPROCESSOR_RESULT_ERROR;
 	}
 
 	LinkedListPrint(list);
@@ -86,10 +112,14 @@ bool ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *exp
 		list = LinkedListDelete(list);
 	}
 
-	// Free allocated string buffer
-	free(tt.str);
+	// Free list
+	while (list != NULL)
+	{
+		free(LinkedListGetItem(list));
+		list = LinkedListDelete(list);
+	}
 
-	return false;
+	return res;
 }
 
 
