@@ -80,7 +80,7 @@ typedef struct state_s
 	FILE *file;
 	states_t state;
 	preprocessor_state_t preprocessor_state;
-	cparserdictionary_t *dictionary;
+	cparserdictionary_t *defined;
 	cparserpaths_t *paths;
 	uint32_t tokenizer_flags;
 	token_t token;
@@ -324,7 +324,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 			oo->info = _T strdup("Use of C keywords as identifiers is not allowed");
 		}
-		else if (DictionaryExistsKey(s->dictionary, s->token.str))
+		else if (DictionaryExistsKey(s->defined, s->token.str))
 		{
 			// Detected identifier already in use
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -347,7 +347,7 @@ static object_t * DigestDataType(object_t *oo, state_t *s)
 			}
 
 			// Add define identifier to dictionary
-			DictionarySetKeyValue(s->dictionary, s->token.str, oo);
+			DictionarySetKeyValue(s->defined, s->token.str, oo);
 		}
 	}
 	else
@@ -885,7 +885,7 @@ static object_t * ProcessPreprocessorStateIncludeFilename(object_t *oo, state_t 
 {
 	uint32_t len = strlen(_t s->token.str);
 	uint8_t *filename = (len < 3) ? NULL : _T strndup(_t s->token.str + 1, len - 2);
-	object_t *nn = CParserParse(s->dictionary, s->paths, filename);
+	object_t *nn = CParserParse(s->defined, s->paths, filename);
 
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_INCLUDE_FILENAME, &s->token);		// Add include filename
 	oo = ObjectGetParent(oo);														// Return to preprocessor
@@ -917,7 +917,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (DictionaryExistsKey(s->dictionary, s->token.str))
+	else if (DictionaryExistsKey(s->defined, s->token.str))
 	{
 		// Trying to redefine an already defined symbol
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
@@ -931,7 +931,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, &s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
-		DictionarySetKeyValue(s->dictionary, s->token.str, oo);							// Add definition to dictionary
+		DictionarySetKeyValue(s->defined, s->token.str, oo);							// Add definition to dictionary
 		oo = ObjectGetParent(oo);														// Return to preprocessor
 
 		// Update state and prepare for parsing a define literal
@@ -960,7 +960,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (!DictionaryExistsKey(s->dictionary, s->token.str))
+	else if (!DictionaryExistsKey(s->defined, s->token.str))
 	{
 		// Trying to redefine an already defined symbol
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_WARNING, &s->token);
@@ -974,7 +974,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF_IDENTIFIER, &s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
-		DictionarySetKeyValue(s->dictionary, s->token.str, oo);							// Add definition to dictionary
+		DictionarySetKeyValue(s->defined, s->token.str, oo);							// Add definition to dictionary
 		oo = ObjectGetParent(oo);														// Return to preprocessor
 		oo = ObjectGetParent(oo);														// Return to preprocessor parent
 
@@ -987,7 +987,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
-	ExpressionEvalPreprocessor(NULL, s->token.str);
+	ExpressionEvalPreprocessor(s->defined, s->token.str);
 
 	__builtin_trap(); // TODO: if literal
 
@@ -1267,7 +1267,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 	StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 	// Update conditional compilation state depending on the requested identifier exists or not
-	if (!DictionaryExistsKey(s->dictionary, s->token.str))
+	if (!DictionaryExistsKey(s->defined, s->token.str))
 	{
 		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_ACCEPTING;
 	}
@@ -1292,7 +1292,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 	StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
 	// Update conditional compilation state depending on the requested identifier exists or not
-	if (DictionaryExistsKey(s->dictionary, s->token.str))
+	if (DictionaryExistsKey(s->defined, s->token.str))
 	{
 		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_ACCEPTING;
 	}

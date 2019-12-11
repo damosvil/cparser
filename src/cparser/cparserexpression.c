@@ -46,6 +46,7 @@ static const uint8_t *valid_operators[VALID_OPERATORS_COUNT] = {
 		_T "^", _T "|",  _T "||", _T "~"
 };
 
+
 static int GetNextChar(void *data)
 {
 	int res;
@@ -143,14 +144,12 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListEvalDefined(c
 		EVAL_DEFINED_STATE_LOOKING
 	} state = EVAL_DEFINED_STATE_IDLE;
 
-	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_FALSE;
+	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_TRUE;
 	expression_token_t *et = NULL;
 	uint32_t level = 0;
 
-	// Get first linked list token
-	l = LinkedListFirst(l);
-
-	while ((l != NULL) && (res != EXPRESSION_PREPROCESSOR_RESULT_ERROR))
+	// Process tokens
+	while ((l != NULL) && (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE))
 	{
 		// Get item from linked list node
 		et = LinkedListGetItem(l);
@@ -190,48 +189,58 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListEvalDefined(c
 				l = LinkedListDelete(l);
 
 				// Check and delete trailing close parenthesis
-				while (level)
+				while ((l != NULL) && (level > 0))
 				{
 					et = LinkedListGetItem(l);
 					if (et->type != EXPRESSION_TOKEN_TYPE_CLOSE)
 						break;
 
+					level--;
+
 					ExpressionTokenDelete(et);
 					l = LinkedListDelete(l);
-					level--;
 				}
 
 				// Update defined operator by removing previous expression token and creating a decoded value
 				if (level == 0)
 				{
+					// Get defined expression token and remove it
 					et = LinkedListGetItem(defined);
 					ExpressionTokenDelete(et);
+
+					// Create new expression token
+					et = malloc(sizeof(expression_token_type_t));
 					et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
 					et->data = (void *)value;
+
+					// Select next linked list token to defined
+					l = LinkedListNext(defined);
+
+					// Return to idle state
+					state = EVAL_DEFINED_STATE_IDLE;
 				}
 				else
 				{
 					// Syntax error: incorrect number of closing parenthesis
-					res = EXPRESSION_PREPROCESSOR_RESULT_ERROR;
+					res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH;
 				}
-
-				// Select next linked list token
-				l = LinkedListNext(defined);
 			}
 			else
 			{
 				// Syntax error: defined operator syntax error
-				res = EXPRESSION_PREPROCESSOR_RESULT_ERROR;
+				res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_OPERATOR;
 			}
 			break;
 
 		default:
+			res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_EVAL;
 			break;
 
 		}
 	}
 
-	return res;
+	return (state == EVAL_DEFINED_STATE_IDLE) ? res :
+		EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER;
 }
 
 static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)

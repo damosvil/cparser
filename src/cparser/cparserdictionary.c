@@ -138,7 +138,12 @@ bool DictionaryExistsKey(cparserdictionary_t *d, const uint8_t *key)
 {
 	pair_t pp = { key, NULL };
 	pair_t *ppp = &pp;
-	pair_t **p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
+	pair_t **p;
+
+	if (d == NULL)
+		return NULL;
+
+	p = bsearch(&ppp, d->pairs, d->pairs_count, sizeof(pair_t *), DictionaryKeyCompare);
 
 	return p != NULL;
 }

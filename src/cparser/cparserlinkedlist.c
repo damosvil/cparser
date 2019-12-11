@@ -33,7 +33,6 @@ cparserlinkedlist_t *LinkedListNew(void *item)
 
 cparserlinkedlist_t * LinkedListDelete(cparserlinkedlist_t *l)
 {
-	cparserlinkedlist_t *res;
 	cparserlinkedlist_t *next;
 	cparserlinkedlist_t *prev;
 
@@ -45,32 +44,16 @@ cparserlinkedlist_t * LinkedListDelete(cparserlinkedlist_t *l)
 	next = l->next;
 	prev = l->previous;
 
-	// Link
-	if (next && prev)
-	{
-		next->previous = prev;
-		prev->next = next;
-		res = next;
-	}
-	else if (next)
-	{
-		next->previous = NULL;
-		res = next;
-	}
-	else if (prev)
-	{
-		prev->next = NULL;
-		res = prev;
-	}
-	else
-	{
-		res = NULL;
-	}
-
 	// Free linked list item
 	free(l);
 
-	return res;
+	// Link
+	if (next != NULL)
+		next->previous = prev;
+	if (prev != NULL)
+		prev->next = next;
+
+	return next;
 }
 
 cparserlinkedlist_t *LinkedListFirst(cparserlinkedlist_t *l)
