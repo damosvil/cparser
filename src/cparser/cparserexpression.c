@@ -122,7 +122,7 @@ static void LinkedExpressionListPrint(cparserlinkedlist_t *l)
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_DECODED_VALUE:
-			printf("<%s:%ld> ", STR(EXPRESSION_TOKEN_TYPE_DECODED_VALUE), (long int)et->data);
+			printf("<%s:%ld> ", STR(EXPRESSION_TOKEN_TYPE_DECODED_VALUE), (int64_t)et->data);
 			break;
 
 		default:
@@ -181,7 +181,7 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListEvalDefined(c
 			else if (et->type == EXPRESSION_TOKEN_TYPE_IDENTIFIER)
 			{
 				// Replace previous define and definition identifier by a boolean decoded value
-				uint64_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
+				int64_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
 				cparserlinkedlist_t *defined = LinkedListPrevious(l);
 
 				// Remove identifier
@@ -241,6 +241,181 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListEvalDefined(c
 
 	return (state == EVAL_DEFINED_STATE_IDLE) ? res :
 		EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER;
+}
+
+static cparserexpression_preprocessor_result_t LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cparserdictionary_t *defines)
+{
+	return EXPRESSION_PREPROCESSOR_RESULT_TRUE;
+}
+
+static int64_t ComputeUnary(const uint8_t *op, int64_t a)
+{
+	if ((op[0] == '!') && (op[1] == 0))
+	{
+		return !a;
+	}
+	else if ((op[0] == '~') && (op[1] == 0))
+	{
+		return ~a;
+	}
+	else if ((op[0] == '+') && (op[1] == 0))
+	{
+		return +a;
+	}
+	else if ((op[0] == '-') && (op[1] == 0))
+	{
+		return -a;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
+{
+	if ((op[0] == '+') && (op[1] == 0))
+	{
+		return a + b;
+	}
+	else if ((op[0] == '-') && (op[1] == 0))
+	{
+		return a - b;
+	}
+	else if ((op[0] == '*') && (op[1] == 0))
+	{
+		return a * b;
+	}
+	else if ((op[0] == '/') && (op[1] == 0))
+	{
+		return a / b;
+	}
+	else if ((op[0] == '%') && (op[1] == 0))
+	{
+		return a % b;
+	}
+	else if ((op[0] == '&') && (op[1] == 0))
+	{
+		return a & b;
+	}
+	else if ((op[0] == '|') && (op[1] == 0))
+	{
+		return a | b;
+	}
+	else if ((op[0] == '^') && (op[1] == 0))
+	{
+		return a ^ b;
+	}
+	else if ((op[0] == '<') && (op[1] == 0))
+	{
+		return a < b;
+	}
+	else if ((op[0] == '>') && (op[1] == 0))
+	{
+		return a > b;
+	}
+	else if ((op[0] == '&') && (op[1] == '&') && (op[2] == 0))
+	{
+		return a && b;
+	}
+	else if ((op[0] == '|') && (op[1] == '|') && (op[2] == 0))
+	{
+		return a || b;
+	}
+	else if ((op[0] == '<') && (op[1] == '<') && (op[2] == 0))
+	{
+		return a << b;
+	}
+	else if ((op[0] == '>') && (op[1] == '>') && (op[2] == 0))
+	{
+		return a >> b;
+	}
+	else if ((op[0] == '<') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a <= b;
+	}
+	else if ((op[0] == '>') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a >= b;
+	}
+	else if ((op[0] == '=') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a == b;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+static cparserexpression_preprocessor_result_t LinkedExpressionListEvaluate(cparserlinkedlist_t *l)
+{
+	enum eval_defined_state_e
+	{
+		EVAL_DEFINED_STATE_IDLE = 0,
+	} state = EVAL_DEFINED_STATE_IDLE;
+
+	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_TRUE;
+	expression_token_t *et = NULL;
+
+	// Process tokens
+	while ((l != NULL) && (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE))
+	{
+		// Get item from linked list node
+		et = LinkedListGetItem(l);
+
+		// Skip tokens other than defined operator
+		switch (state)
+		{
+
+		case EVAL_DEFINED_STATE_IDLE:
+			if (et->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
+			{
+				cparserlinkedlist_t *u = LinkedListPrevious(l);
+				cparserlinkedlist_t *v = LinkedListNext(l);
+				expression_token_t *etu = LinkedListGetItem(u);
+				expression_token_t *etv = LinkedListGetItem(v);
+
+				if ((etu == NULL) || (etv == NULL))
+				{
+					return EXPRESSION_PREPROCESSOR_RESULT_ERROR_OPERATOR_WITHOUT_OPERANDS_IN_EXPRESSION;
+				}
+
+				cparserlinkedlist_t *uu = LinkedListPrevious(u);
+				cparserlinkedlist_t *vv = LinkedListNext(u);
+				expression_token_t *etuu = LinkedListGetItem(uu);
+				expression_token_t *etvv = LinkedListGetItem(vv);
+
+				if ((etuu == NULL) && (etvv == NULL))
+				{
+					// No more operands in boundary, so compute
+					if ((etu->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE) || (etv->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+					{
+						return EXPRESSION_PREPROCESSOR_RESULT_ERROR_OPERATOR_WITH_INCORRECT_OPERANDS_IN_EXPRESSION;
+					}
+
+					int64_t value = ComputeBinary((int64_t)etu->data, et->data, (int64_t)etv->data);
+				}
+				else if ((etuu != NULL) && (etvv == NULL))
+				{
+
+				}
+				else if ((etuu == NULL) && (etvv != NULL))
+				{
+
+				}
+				else
+				{
+
+				}
+			}
+			l = LinkedListNext(l);
+			break;
+
+		}
+	}
+
+	return res;
 }
 
 static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
@@ -324,6 +499,33 @@ cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictio
 
 	// Eval definitions
 	res = LinkedExpressionListEvalDefined(list, defines);
+	if (res != EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	{
+		LinkedExpressionListDelete(list);
+		return res;
+	}
+
+	// Print linked expression list
+	LinkedExpressionListPrint(list);
+
+	// Replace definitions
+	res = LinkedExpressionListReplaceDefinitions(list, defines);
+	if (res != EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	{
+		LinkedExpressionListDelete(list);
+		return res;
+	}
+
+	// Print linked expression list
+	LinkedExpressionListPrint(list);
+
+	// Run expression evaluator
+	res = LinkedExpressionListEvaluate(list);
+	if ((res != EXPRESSION_PREPROCESSOR_RESULT_TRUE) && (res != EXPRESSION_PREPROCESSOR_RESULT_FALSE))
+	{
+		LinkedExpressionListDelete(list);
+		return res;
+	}
 
 	// Print linked expression list
 	LinkedExpressionListPrint(list);

@@ -74,11 +74,17 @@ cparserlinkedlist_t *LinkedListLast(cparserlinkedlist_t *l)
 
 cparserlinkedlist_t *LinkedListPrevious(cparserlinkedlist_t *l)
 {
+	if (1 == NULL)
+		return NULL;
+
 	return l->previous;
 }
 
 cparserlinkedlist_t *LinkedListNext(cparserlinkedlist_t *l)
 {
+	if (l == NULL)
+		return NULL;
+
 	return l->next;
 }
 

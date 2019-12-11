@@ -987,7 +987,55 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
-	ExpressionEvalPreprocessor(s->defined, s->token.str);
+	cparserexpression_preprocessor_result_t res = ExpressionEvalPreprocessor(s->defined, s->token.str);
+
+	if (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	{
+		__builtin_trap(); // TODO: if true expression result
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_FALSE)
+	{
+		__builtin_trap(); // TODO: if false expression result
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Incorrect if preprocessor expression");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Incorrect if preprocessor expression: parenthesis doesn't match.");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_OPERATOR)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Incorrect if preprocessor expression: incorrect expression in defined operator.");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_EVAL)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Incorrect if preprocessor expression: error during evaluation of defined operators.");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER)
+	{
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
+		oo->info = _T strdup("Incorrect if preprocessor expression: defined without identifier.");
+		oo = ObjectGetParent(oo);
+		s->state = STATE_ERROR;
+	}
+	else
+	{
+		__builtin_trap(); // TODO: unhandled if expression error
+	}
 
 	__builtin_trap(); // TODO: if literal
 
