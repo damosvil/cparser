@@ -36,6 +36,8 @@ typedef enum expression_token_type_e
 typedef struct expression_token_s
 {
 	expression_token_type_t type;
+	uint32_t row;
+	uint32_t column;
 	void *data;
 } expression_token_t;
 
@@ -494,9 +496,9 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeBinary
 	return EXPRESSION_PREPROCESSOR_RESULT_TRUE;
 }
 
-static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
+static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression, uint32_t row, uint32_t column)
 {
-	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, 1, 0, malloc(strlen(_t expression) + 1) };
+	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, row, column, malloc(strlen(_t expression) + 1) };
 	token_source_t source = { &expression, GetNextChar };
 	cparserlinkedlist_t *l = NULL;
 	expression_token_t *et = NULL;
@@ -515,11 +517,15 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 			if (StrEq("defined", _t tt.str))
 			{
 				et->type = EXPRESSION_TOKEN_TYPE_DEFINED;
+				et->row = tt.row;
+				et->column = tt.column;
 				et->data = NULL;
 			}
 			else
 			{
 				et->type = EXPRESSION_TOKEN_TYPE_IDENTIFIER;
+				et->row = tt.row;
+				et->column = tt.column;
 				et->data = strdup(_t tt.str);
 			}
 		}
@@ -527,12 +533,16 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 		{
 			et = malloc(sizeof(expression_token_t));
 			et->type = tt.str[0] == '(' ? EXPRESSION_TOKEN_TYPE_OPEN : EXPRESSION_TOKEN_TYPE_CLOSE;
+			et->row = tt.row;
+			et->column = tt.column;
 			et->data = NULL;
 		}
 		else if ((tt.type == CPARSER_TOKEN_TYPE_OPERATOR) && StringInAscendingSet(tt.str, valid_operators, VALID_OPERATORS_COUNT))
 		{
 			et = malloc(sizeof(expression_token_t));
 			et->type = EXPRESSION_TOKEN_TYPE_OPERATOR;
+			et->row = tt.row;
+			et->column = tt.column;
 			et->data = strdup(_t tt.str);
 		}
 		else
@@ -562,10 +572,10 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression)
 	return !error ? LinkedListFirst(l) : NULL;
 }
 
-cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression)
+cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression, uint32_t row, uint32_t column)
 {
 	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_FALSE;
-	cparserlinkedlist_t *list = ExpressionToLinkedList(expression);
+	cparserlinkedlist_t *list = ExpressionToLinkedList(expression, row, column);
 
 	if (list == NULL)
 		return EXPRESSION_PREPROCESSOR_RESULT_ERROR;

@@ -987,7 +987,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
-	cparserexpression_preprocessor_result_t res = ExpressionEvalPreprocessor(s->defined, s->token.str);
+	cparserexpression_preprocessor_result_t res = ExpressionEvalPreprocessor(s->defined, s->token.str, s->token.row, s->token.column);
 
 	if (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE)
 	{

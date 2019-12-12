@@ -24,7 +24,7 @@ typedef enum cparserexpression_preprocessor_result_e
 	EXPRESSION_PREPROCESSOR_RESULT_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION
 } cparserexpression_preprocessor_result_t;
 
-cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression);
+cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression, uint32_t row, uint32_t column);
 
 
 #endif /* CPARSEREXPRESSION_H_ */
