@@ -987,45 +987,45 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
-	cparserexpression_preprocessor_result_t res = ExpressionEvalPreprocessor(s->defined, s->token.str, s->token.row, s->token.column);
+	cparserexpression_result_t *r = ExpressionEvalPreprocessor(s->defined, s->token.str, s->token.row, s->token.column);
 
-	if (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	if (r->code == EXPRESSION_RESULT_CODE_TRUE)
 	{
 		__builtin_trap(); // TODO: if true expression result
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_FALSE)
+	else if (r->code == EXPRESSION_RESULT_CODE_FALSE)
 	{
 		__builtin_trap(); // TODO: if false expression result
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR)
+	else if (r->code == EXPRESSION_RESULT_CODE_ERROR_INCORRECT_TOKEN)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Incorrect if preprocessor expression");
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH)
+	else if (r->code == EXPRESSION_RESULT_CODE_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Incorrect if preprocessor expression: parenthesis doesn't match.");
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_OPERATOR)
+	else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_OPERATOR)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Incorrect if preprocessor expression: incorrect expression in defined operator.");
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_EVAL)
+	else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_EVAL)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Incorrect if preprocessor expression: error during evaluation of defined operators.");
 		oo = ObjectGetParent(oo);
 		s->state = STATE_ERROR;
 	}
-	else if (res == EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER)
+	else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_WITHOUT_IDENTIFIER)
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Incorrect if preprocessor expression: defined without identifier.");

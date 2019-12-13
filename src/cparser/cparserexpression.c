@@ -53,6 +53,7 @@ static const uint8_t *valid_unary_operators[VALID_UNARY_OPERATORS_COUNT] = {
 		_T "!", _T "+",  _T "-",  _T "~"
 };
 
+static cparserexpression_result_t res;
 
 static int GetNextChar(void *data)
 {
@@ -143,7 +144,7 @@ static void LinkedExpressionListPrint(cparserlinkedlist_t *l)
 	printf("\n");
 }
 
-static cparserexpression_preprocessor_result_t LinkedExpressionListComputeDefined(cparserlinkedlist_t *l, cparserdictionary_t *defines)
+static cparserexpression_result_t *LinkedExpressionListComputeDefined(cparserlinkedlist_t *l, cparserdictionary_t *defines)
 {
 	enum eval_defined_state_e
 	{
@@ -151,12 +152,11 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeDefine
 		EVAL_DEFINED_STATE_LOOKING
 	} state = EVAL_DEFINED_STATE_IDLE;
 
-	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_TRUE;
 	expression_token_t *et = NULL;
 	uint32_t level = 0;
 
 	// Process tokens
-	while ((l != NULL) && (res == EXPRESSION_PREPROCESSOR_RESULT_TRUE))
+	while (l != NULL)
 	{
 		// Get item from linked list node
 		et = LinkedListGetItem(l);
@@ -229,30 +229,44 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeDefine
 				else
 				{
 					// Syntax error: incorrect number of closing parenthesis
-					res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH;
+					res.code = EXPRESSION_RESULT_CODE_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH;
+					res.row = et->row;
+					res.column = et->column;
+					return &res;
 				}
 			}
 			else
 			{
 				// Syntax error: defined operator syntax error
-				res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_OPERATOR;
+				res.code = EXPRESSION_RESULT_CODE_ERROR_DEFINED_OPERATOR;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			break;
 
 		default:
-			res = EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_EVAL;
+			res.code = EXPRESSION_RESULT_CODE_ERROR_DEFINED_EVAL;
+			res.row = et->row;
+			res.column = et->column;
+			return &res;
 			break;
 
 		}
 	}
 
-	return (state == EVAL_DEFINED_STATE_IDLE) ? res :
-		EXPRESSION_PREPROCESSOR_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER;
+	res.code = EXPRESSION_RESULT_CODE_TRUE;
+	res.row = 0;
+	res.column = 0;
+	return &res;
 }
 
-static cparserexpression_preprocessor_result_t LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cparserdictionary_t *defines)
+static cparserexpression_result_t *LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cparserdictionary_t *defines)
 {
-	return EXPRESSION_PREPROCESSOR_RESULT_TRUE;
+	res.code = EXPRESSION_RESULT_CODE_TRUE;
+	res.row = 0;
+	res.column = 0;
+	return &res;
 }
 
 static int64_t ComputeUnary(const uint8_t *op, int64_t a)
@@ -355,7 +369,7 @@ static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
 	}
 }
 
-static cparserexpression_preprocessor_result_t LinkedExpressionListComputeUnary(cparserlinkedlist_t *l)
+static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinkedlist_t *l)
 {
 	// Process tokens
 	while (l != NULL)
@@ -386,15 +400,24 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeUnary(
 			// Unary operator before decoded value
 			if (!StringInAscendingSet(etu->data, valid_unary_operators, VALID_UNARY_OPERATORS_COUNT))
 			{
-				return EXPRESSION_PREPROCESSOR_RESULT_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION;
+				res.code = EXPRESSION_RESULT_CODE_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			else if (StrEq(etu->data, "-") && StrEq(etuu->data, "-"))
 			{
-				return EXPRESSION_PREPROCESSOR_RESULT_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS;
+				res.code = EXPRESSION_RESULT_CODE_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			else if (StrEq(etu->data, "-") && StrEq(etuu->data, "-"))
 			{
-				return EXPRESSION_PREPROCESSOR_RESULT_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS;
+				res.code = EXPRESSION_RESULT_CODE_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			else
 			{
@@ -424,10 +447,13 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeUnary(
 		}
 	}
 
-	return EXPRESSION_PREPROCESSOR_RESULT_TRUE;
+	res.code = EXPRESSION_RESULT_CODE_TRUE;
+	res.row = 0;
+	res.column = 0;
+	return &res;
 }
 
-static cparserexpression_preprocessor_result_t LinkedExpressionListComputeBinary(cparserlinkedlist_t *l)
+static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlinkedlist_t *l)
 {
 	enum eval_defined_state_e
 	{
@@ -456,7 +482,10 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeBinary
 
 				if ((etu == NULL) || (etv == NULL))
 				{
-					return EXPRESSION_PREPROCESSOR_RESULT_ERROR_OPERATOR_WITHOUT_OPERANDS_IN_EXPRESSION;
+					res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITHOUT_OPERANDS_IN_EXPRESSION;
+					res.row = et->row;
+					res.column = et->column;
+					return &res;
 				}
 
 				cparserlinkedlist_t *uu = LinkedListPrevious(u);
@@ -469,7 +498,10 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeBinary
 					// No more operands in boundary, so compute
 					if ((etu->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE) || (etv->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
 					{
-						return EXPRESSION_PREPROCESSOR_RESULT_ERROR_OPERATOR_WITH_INCORRECT_OPERANDS_IN_EXPRESSION;
+						res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_INCORRECT_OPERANDS_IN_EXPRESSION;
+						res.row = et->row;
+						res.column = et->column;
+						return &res;
 					}
 
 					int64_t value = ComputeBinary((int64_t)etu->data, et->data, (int64_t)etv->data);
@@ -493,16 +525,18 @@ static cparserexpression_preprocessor_result_t LinkedExpressionListComputeBinary
 		}
 	}
 
-	return EXPRESSION_PREPROCESSOR_RESULT_TRUE;
+	res.code = EXPRESSION_RESULT_CODE_TRUE;
+	res.row = 0;
+	res.column = 0;
+	return &res;
 }
 
-static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression, uint32_t row, uint32_t column)
+static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *expression, uint32_t row, uint32_t column, cparserlinkedlist_t **list)
 {
 	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, row, column, malloc(strlen(_t expression) + 1) };
 	token_source_t source = { &expression, GetNextChar };
 	cparserlinkedlist_t *l = NULL;
 	expression_token_t *et = NULL;
-	bool error = false;
 
 	while (TokenNext(&source, &tt, 0))
 	{
@@ -547,7 +581,9 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression, ui
 		}
 		else
 		{
-			error = true;
+			res.code = EXPRESSION_RESULT_CODE_ERROR_INCORRECT_TOKEN;
+			res.row = tt.row;
+			res.column = tt.column;
 			break;
 		}
 
@@ -565,58 +601,57 @@ static cparserlinkedlist_t *ExpressionToLinkedList(const uint8_t *expression, ui
 	// Destroy allocated token buffer
 	free(tt.str);
 
-	// On error destroy linked list
-	if (error)
-		LinkedExpressionListDelete(l);
+	// Assign the decoded list to l
+	*list = l;
 
-	return !error ? LinkedListFirst(l) : NULL;
+	return &res;
 }
 
-cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression, uint32_t row, uint32_t column)
+cparserexpression_result_t *ExpressionEvalPreprocessor(cparserdictionary_t *defines, const uint8_t *expression, uint32_t row, uint32_t column)
 {
-	cparserexpression_preprocessor_result_t res = EXPRESSION_PREPROCESSOR_RESULT_FALSE;
-	cparserlinkedlist_t *list = ExpressionToLinkedList(expression, row, column);
-
-	if (list == NULL)
-		return EXPRESSION_PREPROCESSOR_RESULT_ERROR;
-
-	// Print linked expression list
+	cparserlinkedlist_t *list;
+	cparserexpression_result_t *r = ExpressionToLinkedList(expression, row, column, &list);
 	LinkedExpressionListPrint(list);
-
-	// Compute defined operator and print
-	res = LinkedExpressionListComputeDefined(list, defines);
-	LinkedExpressionListPrint(list);
-	if (res != EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	if (r->code != EXPRESSION_RESULT_CODE_TRUE)
 	{
 		LinkedExpressionListDelete(list);
-		return res;
+		return r;
+	}
+
+	// Compute defined operator and print
+	r = LinkedExpressionListComputeDefined(list, defines);
+	LinkedExpressionListPrint(list);
+	if (r->code != EXPRESSION_RESULT_CODE_TRUE)
+	{
+		LinkedExpressionListDelete(list);
+		return r;
 	}
 
 	// Replace definitions and print
-	res = LinkedExpressionListReplaceDefinitions(list, defines);
+	r = LinkedExpressionListReplaceDefinitions(list, defines);
 	LinkedExpressionListPrint(list);
-	if (res != EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	if (r->code != EXPRESSION_RESULT_CODE_TRUE)
 	{
 		LinkedExpressionListDelete(list);
-		return res;
+		return r;
 	}
 
 	// Compute unary operators and print
-	res = LinkedExpressionListComputeUnary(list);
+	r = LinkedExpressionListComputeUnary(list);
 	LinkedExpressionListPrint(list);
-	if (res != EXPRESSION_PREPROCESSOR_RESULT_TRUE)
+	if (r->code != EXPRESSION_RESULT_CODE_TRUE)
 	{
 		LinkedExpressionListDelete(list);
-		return res;
+		return r;
 	}
 
 	// Compute expression evaluator and print
-	res = LinkedExpressionListComputeBinary(list);
+	r = LinkedExpressionListComputeBinary(list);
 	LinkedExpressionListPrint(list);
-	if ((res != EXPRESSION_PREPROCESSOR_RESULT_TRUE) && (res != EXPRESSION_PREPROCESSOR_RESULT_FALSE))
+	if ((r->code != EXPRESSION_RESULT_CODE_TRUE) && (r->code != EXPRESSION_RESULT_CODE_FALSE))
 	{
 		LinkedExpressionListDelete(list);
-		return res;
+		return r;
 	}
 
 	// Free list
@@ -624,7 +659,7 @@ cparserexpression_preprocessor_result_t ExpressionEvalPreprocessor(cparserdictio
 
 	__builtin_trap(); // TODO: if literal
 
-	return res;
+	return r;
 }
 
 
