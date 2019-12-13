@@ -369,11 +369,16 @@ static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
 	}
 }
 
-static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinkedlist_t *l)
+static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinkedlist_t **list)
 {
+	cparserlinkedlist_t *l = *list;
+
 	// Process tokens
 	while (l != NULL)
 	{
+		// Update list with a valid node
+		*list = l;
+
 		// Get item from linked list node
 		expression_token_t * et = LinkedListGetItem(l);
 		cparserlinkedlist_t *u = LinkedListPrevious(l);
@@ -455,83 +460,111 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 		}
 	}
 
+	// Go to first token in list
+	*list = LinkedListFirst(*list);
+
 	res.code = EXPRESSION_RESULT_CODE_TRUE;
 	res.row = 0;
 	res.column = 0;
 	return &res;
 }
 
-static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlinkedlist_t *l)
+static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlinkedlist_t **list)
 {
-	enum eval_defined_state_e
-	{
-		EVAL_DEFINED_STATE_IDLE = 0,
-	} state = EVAL_DEFINED_STATE_IDLE;
-
-	expression_token_t *et = NULL;
+	cparserlinkedlist_t *l = *list;
 
 	// Process tokens
 	while (l != NULL)
 	{
-		// Get item from linked list node
-		et = LinkedListGetItem(l);
+		// Update list
+		*list = l;
 
-		// Skip tokens other than defined operator
-		switch (state)
+		// Get items from linked list node
+		expression_token_t *et = LinkedListGetItem(l);
+
+		cparserlinkedlist_t *prev = LinkedListPrevious(l);
+		cparserlinkedlist_t *next = LinkedListNext(l);
+		expression_token_t *et_prev = LinkedListGetItem(prev);
+		expression_token_t *et_next = LinkedListGetItem(next);
+
+		cparserlinkedlist_t *prev_prev = LinkedListPrevious(prev);
+		cparserlinkedlist_t *next_next = LinkedListNext(prev);
+		expression_token_t *et_prev_prev = LinkedListGetItem(prev_prev);
+		expression_token_t *et_next_next = LinkedListGetItem(next_next);
+
+		if (et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
 		{
-
-		case EVAL_DEFINED_STATE_IDLE:
-			if (et->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
+			if (
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_CLOSE)) ||
+					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_OPEN))
+				)
 			{
-				cparserlinkedlist_t *u = LinkedListPrevious(l);
-				cparserlinkedlist_t *v = LinkedListNext(l);
-				expression_token_t *etu = LinkedListGetItem(u);
-				expression_token_t *etv = LinkedListGetItem(v);
-
-				if ((etu == NULL) || (etv == NULL))
-				{
-					res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITHOUT_OPERANDS_IN_EXPRESSION;
-					res.row = et->row;
-					res.column = et->column;
-					return &res;
-				}
-
-				cparserlinkedlist_t *uu = LinkedListPrevious(u);
-				cparserlinkedlist_t *vv = LinkedListNext(u);
-				expression_token_t *etuu = LinkedListGetItem(uu);
-				expression_token_t *etvv = LinkedListGetItem(vv);
-
-				if ((etuu == NULL) && (etvv == NULL))
-				{
-					// No more operands in boundary, so compute
-					if ((etu->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE) || (etv->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
-					{
-						res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_INCORRECT_OPERANDS_IN_EXPRESSION;
-						res.row = et->row;
-						res.column = et->column;
-						return &res;
-					}
-
-					int64_t value = ComputeBinary((int64_t)etu->data, et->data, (int64_t)etv->data);
-				}
-				else if ((etuu != NULL) && (etvv == NULL))
-				{
-
-				}
-				else if ((etuu == NULL) && (etvv != NULL))
-				{
-
-				}
-				else
-				{
-
-				}
+				// Inverted parenthesis near operand
 			}
-			l = LinkedListNext(l);
-			break;
-
+			else if (
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
+					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+				)
+			{
+				// Illegal operand besides operand
+			}
+			else if (
+					((et_prev == NULL) && (et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_CLOSE)) ||
+					((et_next == NULL) && (et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN))
+				)
+			{
+				// Illegal operand with partial parenthesis
+			}
+			else if (
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) ||
+					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_CLOSE))
+				)
+			{
+				// Operand is alone in between parenthesis, so remove them
+				ExpressionTokenDelete(et_next);
+				ExpressionTokenDelete(et_prev);
+				LinkedExpressionListDelete(next);
+				LinkedExpressionListDelete(prev);
+			}
 		}
+		else if (et->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
+		{
+			if ((et_prev == NULL) || (et_next == NULL))
+			{
+				// Operator without operand
+			}
+			else if (
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) ||
+					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_CLOSE))
+				)
+			{
+				// Operator with incorrect parenthesys around (notify parenthesis node)
+			}
+			else if (
+					((et_prev != NULL) && (et_prev->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
+					((et_next != NULL) && (et_next->type != EXPRESSION_TOKEN_TYPE_OPEN) && (et_next->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+				)
+			{
+				// Operator lacks of valid operands or parenthesis arround
+			}
+			else if (
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) &&
+					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+				)
+			{
+				// Check operator precedence
+			}
+			else
+			{
+				// Corner case
+			}
+		}
+
+		l = LinkedListNext(l);
 	}
+
+	// Go to first token in list
+	*list = LinkedListFirst(*list);
 
 	res.code = EXPRESSION_RESULT_CODE_TRUE;
 	res.row = 0;
@@ -586,6 +619,14 @@ static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *express
 			et->row = tt.row;
 			et->column = tt.column;
 			et->data = strdup(_t tt.str);
+		}
+		else if (tt.type == CPARSER_TOKEN_TYPE_NUMBER_LITERAL)
+		{
+			et = malloc(sizeof(expression_token_t));
+			et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+			et->row = tt.row;
+			et->column = tt.column;
+			et->data = (void *)atoll(_t tt.str);
 		}
 		else
 		{
@@ -645,7 +686,7 @@ cparserexpression_result_t *ExpressionEvalPreprocessor(cparserdictionary_t *defi
 	}
 
 	// Compute unary operators and print
-	r = LinkedExpressionListComputeUnary(list);
+	r = LinkedExpressionListComputeUnary(&list);
 	LinkedExpressionListPrint(list);
 	if (r->code != EXPRESSION_RESULT_CODE_TRUE)
 	{
@@ -654,7 +695,7 @@ cparserexpression_result_t *ExpressionEvalPreprocessor(cparserdictionary_t *defi
 	}
 
 	// Compute expression evaluator and print
-	r = LinkedExpressionListComputeBinary(list);
+	r = LinkedExpressionListComputeBinary(&list);
 	LinkedExpressionListPrint(list);
 	if ((r->code != EXPRESSION_RESULT_CODE_TRUE) && (r->code != EXPRESSION_RESULT_CODE_FALSE))
 	{
