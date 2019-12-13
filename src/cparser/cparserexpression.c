@@ -395,6 +395,14 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 					(etu->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
 					(etuu->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
 				)
+				||
+				// Value preceded by operator also preceded by open parenthesis
+				(
+					(etu != NULL) && (etuu != NULL) &&
+					(et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE) &&
+					(etu->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+					(etuu->type == EXPRESSION_TOKEN_TYPE_OPEN)
+				)
 			)
 		{
 			// Unary operator before decoded value
