@@ -665,7 +665,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Inverted parenthesis near operand
-
+				res.code = EXPRESSION_RESULT_CODE_ERROR_INVERTED_PARENTHESIS_NEAR_OPERAND;
+				res.row = (et_prev != NULL) ? et_prev->row : et_next->row;
+				res.column = (et_prev != NULL) ? et_prev->column : et_next->column;
+				return &res;
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
@@ -673,6 +676,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Illegal operand besides operand
+				res.code = EXPRESSION_RESULT_CODE_ERROR_OPERAND_BESIDES_OPERAND;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			else if (
 					((et_prev == NULL) && (et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_CLOSE)) ||
@@ -680,6 +687,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Illegal operand with partial parenthesis
+				res.code = EXPRESSION_RESULT_CODE_ERROR_INCORRECT_PARENTHESIS;
+				res.row = (et_prev != NULL) ? et_prev->row : et_next->row;
+				res.column = (et_prev != NULL) ? et_prev->column : et_next->column;
+				return &res;
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) ||
@@ -705,6 +716,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Operator with incorrect parenthesys around (notify parenthesis node)
+				res.code = EXPRESSION_RESULT_CODE_ERROR_INCORRECT_PARENTHESIS;
+				res.row = (et_prev != NULL) ? et_prev->row : et_next->row;
+				res.column = (et_prev != NULL) ? et_prev->column : et_next->column;
+				return &res;
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
@@ -712,6 +727,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Operator lacks of valid operands or parenthesis arround
+				res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_INVALID_NEIGHBOURS;
+				res.row = (et_prev != NULL) ? et_prev->row : et_next->row;
+				res.column = (et_prev != NULL) ? et_prev->column : et_next->column;
+				return &res;
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) &&
