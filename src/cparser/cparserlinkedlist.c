@@ -74,7 +74,7 @@ cparserlinkedlist_t *LinkedListLast(cparserlinkedlist_t *l)
 
 cparserlinkedlist_t *LinkedListPrevious(cparserlinkedlist_t *l)
 {
-	if (1 == NULL)
+	if (l == NULL)
 		return NULL;
 
 	return l->previous;

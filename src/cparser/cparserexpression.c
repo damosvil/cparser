@@ -305,51 +305,52 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 
 		// Get item from linked list node
 		expression_token_t * et = LinkedListGetItem(l);
-		cparserlinkedlist_t *u = LinkedListPrevious(l);
-		cparserlinkedlist_t *uu = LinkedListPrevious(u);
-		expression_token_t *etu = LinkedListGetItem(u);
-		expression_token_t *etuu = LinkedListGetItem(uu);
+		cparserlinkedlist_t *prev = LinkedListPrevious(l);
+		cparserlinkedlist_t *prev_prev = LinkedListPrevious(prev);
+		expression_token_t *et_prev = LinkedListGetItem(prev);
+		expression_token_t *et_prev_prev = LinkedListGetItem(prev_prev);
 
 		if (
 				// Value preceded by operator at the beginning of the expression
 				(
-					(etu != NULL) && (etuu == NULL) &&
-					(et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
+					(et_prev != NULL) && (et_prev_prev == NULL) &&
+					(et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE) &&
+					(et_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
 				)
 				||
 				// Value preceded by operator also preceded by operator
 				(
-					(etu != NULL) && (etuu != NULL) &&
+					(et_prev != NULL) && (et_prev_prev != NULL) &&
 					(et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE) &&
-					(etu->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
-					(etuu->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
+					(et_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+					(et_prev_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
 				)
 				||
 				// Value preceded by operator also preceded by open parenthesis
 				(
-					(etu != NULL) && (etuu != NULL) &&
+					(et_prev != NULL) && (et_prev_prev != NULL) &&
 					(et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE) &&
-					(etu->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
-					(etuu->type == EXPRESSION_TOKEN_TYPE_OPEN)
+					(et_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+					(et_prev_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)
 				)
 			)
 		{
 			// Unary operator before decoded value
-			if (!StringInAscendingSet(etu->data, valid_unary_operators, VALID_UNARY_OPERATORS_COUNT))
+			if (!StringInAscendingSet(et_prev->data, valid_unary_operators, VALID_UNARY_OPERATORS_COUNT))
 			{
 				res.code = EXPRESSION_RESULT_CODE_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION;
 				res.row = et->row;
 				res.column = et->column;
 				return &res;
 			}
-			else if (StrEq(etu->data, "-") && StrEq(etuu->data, "-"))
+			else if ((et_prev_prev != NULL) && StrEq(et_prev_prev->data, "-") && StrEq(et_prev->data, "-"))
 			{
 				res.code = EXPRESSION_RESULT_CODE_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS;
 				res.row = et->row;
 				res.column = et->column;
 				return &res;
 			}
-			else if (StrEq(etu->data, "-") && StrEq(etuu->data, "-"))
+			else if ((et_prev_prev != NULL) && StrEq(et_prev_prev->data, "+") && StrEq(et_prev->data, "+"))
 			{
 				res.code = EXPRESSION_RESULT_CODE_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS;
 				res.row = et->row;
@@ -358,23 +359,22 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 			}
 			else
 			{
-				int64_t value = ComputeUnary(etu->data, (int64_t)et->data);
+				int64_t value = ComputeUnary(et_prev->data, (int64_t)et->data);
+				uint32_t row = et->row;
+				uint32_t column = et->column;
 
-				// Remove value node
+				// Update current operand to value
 				ExpressionTokenDelete(et);
-				LinkedExpressionListDelete(l);
+				et = malloc(sizeof(expression_token_t));
+				et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+				et->row = row;
+				et->column = column;
+				et->data = (void *)value;
+				LinkedListUpdateItem(l, et);
 
-				// Delete previous operand token
-				ExpressionTokenDelete(etu);
-
-				// Update node to value
-				etu = malloc(sizeof(expression_token_t));
-				etu->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
-				etu->data = (void *)value;
-				LinkedListUpdateItem(u, etu);
-
-				// Select new value as current linked list node
-				l = u;
+				// Remove previous operator
+				ExpressionTokenDelete(et_prev);
+				LinkedExpressionListDelete(prev);
 			}
 		}
 		else
@@ -652,9 +652,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 		expression_token_t *et_prev = LinkedListGetItem(prev);
 		expression_token_t *et_next = LinkedListGetItem(next);
 
-		cparserlinkedlist_t *prev_prev = LinkedListPrevious(prev);
-		cparserlinkedlist_t *next_next = LinkedListNext(prev);
-		expression_token_t *et_prev_prev = LinkedListGetItem(prev_prev);
+		cparserlinkedlist_t *next_next = LinkedListNext(next);
 		expression_token_t *et_next_next = LinkedListGetItem(next_next);
 
 		if (et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
@@ -709,6 +707,10 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 			if ((et_prev == NULL) || (et_next == NULL))
 			{
 				// Operator without operand
+				res.code = EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_NO_OPERANDS;
+				res.row = et->row;
+				res.column = et->column;
+				return &res;
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) ||
@@ -737,32 +739,37 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
 				)
 			{
-				// Check operator precedence
 				if (
-						(et_next_next != NULL) &&
-						(et_next_next->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
-						OperatorPreference(et->data, et_next_next->data) >= 0)
+						// No next operator so no precedence checking
+						(et_next_next == NULL)
+						||
+						// There is a operator next so check operator precedence
+						(
+							(et_next_next != NULL) &&
+							(et_next_next->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+							OperatorPreference(et->data, et_next_next->data) >= 0
+						)
+					)
 				{
 					// Perform operation
 					int64_t value = ComputeBinary((int64_t)et_prev->data, et->data, (int64_t)et_next->data);
+					uint32_t row = et->row;
+					uint32_t column = et->column;
 
-					// Replace prev by value
-					ExpressionTokenDelete(et_prev);
-					et_prev = malloc(sizeof(expression_token_t));
-					et_prev->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
-					et_prev->row = et->row;
-					et_prev->column = et->column;
-					et_prev->data = (void *)value;
-					LinkedListUpdateItem(prev, et_prev_prev);
-
-					// Delete current and next
-					ExpressionTokenDelete(et_next);
+					// Replace current by value
 					ExpressionTokenDelete(et);
-					LinkedListDelete(next);
-					LinkedListDelete(l);
+					et = malloc(sizeof(expression_token_t));
+					et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+					et->row = row;
+					et->column = column;
+					et->data = (void *)value;
+					LinkedListUpdateItem(l, et);
 
-					// Set l to prev
-					l = prev;
+					// Delete prev and next
+					ExpressionTokenDelete(et_prev);
+					ExpressionTokenDelete(et_next);
+					LinkedListDelete(prev);
+					LinkedListDelete(next);
 				}
 			}
 			else
@@ -863,8 +870,11 @@ static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *express
 	free(tt.str);
 
 	// Assign the decoded list to l
-	*list = l;
+	*list = LinkedListFirst(l);
 
+	res.code = EXPRESSION_RESULT_CODE_TRUE;
+	res.row = 0;
+	res.column = 0;
 	return &res;
 }
 
