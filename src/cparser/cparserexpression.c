@@ -18,7 +18,7 @@
 #include "cparserexpression.h"
 
 
-#define VALID_OPERATORS_COUNT			19
+#define VALID_OPERATORS_COUNT			20
 #define VALID_UNARY_OPERATORS_COUNT		4
 #define STR(A)							(#A)
 
@@ -43,7 +43,7 @@ typedef struct expression_token_s
 
 
 static const uint8_t *valid_operators[VALID_OPERATORS_COUNT] = {
-		_T "!", _T "%",  _T "&",  _T "&&",
+		_T "!", _T "!=", _T "%",  _T "&",  _T "&&",
 		_T "*", _T "+",  _T "-",  _T "/",
 		_T "<", _T "<<", _T "<=", _T "==", _T ">", _T ">=", _T ">>",
 		_T "^", _T "|",  _T "||", _T "~"
@@ -293,82 +293,6 @@ static int64_t ComputeUnary(const uint8_t *op, int64_t a)
 	}
 }
 
-static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
-{
-	if ((op[0] == '+') && (op[1] == 0))
-	{
-		return a + b;
-	}
-	else if ((op[0] == '-') && (op[1] == 0))
-	{
-		return a - b;
-	}
-	else if ((op[0] == '*') && (op[1] == 0))
-	{
-		return a * b;
-	}
-	else if ((op[0] == '/') && (op[1] == 0))
-	{
-		return a / b;
-	}
-	else if ((op[0] == '%') && (op[1] == 0))
-	{
-		return a % b;
-	}
-	else if ((op[0] == '&') && (op[1] == 0))
-	{
-		return a & b;
-	}
-	else if ((op[0] == '|') && (op[1] == 0))
-	{
-		return a | b;
-	}
-	else if ((op[0] == '^') && (op[1] == 0))
-	{
-		return a ^ b;
-	}
-	else if ((op[0] == '<') && (op[1] == 0))
-	{
-		return a < b;
-	}
-	else if ((op[0] == '>') && (op[1] == 0))
-	{
-		return a > b;
-	}
-	else if ((op[0] == '&') && (op[1] == '&') && (op[2] == 0))
-	{
-		return a && b;
-	}
-	else if ((op[0] == '|') && (op[1] == '|') && (op[2] == 0))
-	{
-		return a || b;
-	}
-	else if ((op[0] == '<') && (op[1] == '<') && (op[2] == 0))
-	{
-		return a << b;
-	}
-	else if ((op[0] == '>') && (op[1] == '>') && (op[2] == 0))
-	{
-		return a >> b;
-	}
-	else if ((op[0] == '<') && (op[1] == '=') && (op[2] == 0))
-	{
-		return a <= b;
-	}
-	else if ((op[0] == '>') && (op[1] == '=') && (op[2] == 0))
-	{
-		return a >= b;
-	}
-	else if ((op[0] == '=') && (op[1] == '=') && (op[2] == 0))
-	{
-		return a == b;
-	}
-	else
-	{
-		return 0;
-	}
-}
-
 static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinkedlist_t **list)
 {
 	cparserlinkedlist_t *l = *list;
@@ -469,6 +393,247 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 	return &res;
 }
 
+static int OperatorPreference(const char *a, const char *b)
+{
+	if (StrEq(a, "*") || StrEq(a, "/") || StrEq(a, "%"))
+	{
+		return 1;
+	}
+	else if (StrEq(a, "+") || StrEq(a, "-"))
+	{
+		if (StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%"))
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "<<") || StrEq(a, ">>"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "<") || StrEq(a, "<=") || StrEq(a, ">") || StrEq(a, ">="))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "==") || StrEq(a, "!="))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "&"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=") ||
+				StrEq(b, "==") || StrEq(b, "!=")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "^"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=") ||
+				StrEq(b, "==") || StrEq(b, "!=") ||
+				StrEq(b, "&")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "|"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=") ||
+				StrEq(b, "==") || StrEq(b, "!=") ||
+				StrEq(b, "&") ||
+				StrEq(b, "^")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "&&"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=") ||
+				StrEq(b, "==") || StrEq(b, "!=") ||
+				StrEq(b, "&") ||
+				StrEq(b, "^") ||
+				StrEq(b, "|")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (StrEq(a, "||"))
+	{
+		if (
+				StrEq(b, "*") || StrEq(b, "/") || StrEq(b, "%") ||
+				StrEq(b, "+") || StrEq(b, "-") ||
+				StrEq(b, "<<") || StrEq(b, ">>") ||
+				StrEq(b, "<") || StrEq(b, "<=") || StrEq(b, ">") || StrEq(b, ">=") ||
+				StrEq(b, "==") || StrEq(b, "!=") ||
+				StrEq(b, "&") ||
+				StrEq(b, "^") ||
+				StrEq(b, "|") ||
+				StrEq(b, "&&")
+			)
+		{
+			return -1;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
+{
+	if ((op[0] == '+') && (op[1] == 0))
+	{
+		return a + b;
+	}
+	else if ((op[0] == '-') && (op[1] == 0))
+	{
+		return a - b;
+	}
+	else if ((op[0] == '*') && (op[1] == 0))
+	{
+		return a * b;
+	}
+	else if ((op[0] == '/') && (op[1] == 0))
+	{
+		return a / b;
+	}
+	else if ((op[0] == '%') && (op[1] == 0))
+	{
+		return a % b;
+	}
+	else if ((op[0] == '&') && (op[1] == 0))
+	{
+		return a & b;
+	}
+	else if ((op[0] == '|') && (op[1] == 0))
+	{
+		return a | b;
+	}
+	else if ((op[0] == '^') && (op[1] == 0))
+	{
+		return a ^ b;
+	}
+	else if ((op[0] == '<') && (op[1] == 0))
+	{
+		return a < b;
+	}
+	else if ((op[0] == '>') && (op[1] == 0))
+	{
+		return a > b;
+	}
+	else if ((op[0] == '&') && (op[1] == '&') && (op[2] == 0))
+	{
+		return a && b;
+	}
+	else if ((op[0] == '|') && (op[1] == '|') && (op[2] == 0))
+	{
+		return a || b;
+	}
+	else if ((op[0] == '<') && (op[1] == '<') && (op[2] == 0))
+	{
+		return a << b;
+	}
+	else if ((op[0] == '>') && (op[1] == '>') && (op[2] == 0))
+	{
+		return a >> b;
+	}
+	else if ((op[0] == '<') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a <= b;
+	}
+	else if ((op[0] == '>') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a >= b;
+	}
+	else if ((op[0] == '=') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a == b;
+	}
+	else if ((op[0] == '!') && (op[1] == '=') && (op[2] == 0))
+	{
+		return a == b;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlinkedlist_t **list)
 {
 	cparserlinkedlist_t *l = *list;
@@ -500,6 +665,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Inverted parenthesis near operand
+
 			}
 			else if (
 					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
@@ -553,10 +719,37 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				)
 			{
 				// Check operator precedence
+				if (
+						(et_next_next != NULL) &&
+						(et_next_next->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+						OperatorPreference(et->data, et_next_next->data) >= 0)
+				{
+					// Perform operation
+					int64_t value = ComputeBinary((int64_t)et_prev->data, et->data, (int64_t)et_next->data);
+
+					// Replace prev by value
+					ExpressionTokenDelete(et_prev);
+					et_prev = malloc(sizeof(expression_token_t));
+					et_prev->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+					et_prev->row = et->row;
+					et_prev->column = et->column;
+					et_prev->data = (void *)value;
+					LinkedListUpdateItem(prev, et_prev_prev);
+
+					// Delete current and next
+					ExpressionTokenDelete(et_next);
+					ExpressionTokenDelete(et);
+					LinkedListDelete(next);
+					LinkedListDelete(l);
+
+					// Set l to prev
+					l = prev;
+				}
 			}
 			else
 			{
 				// Corner case
+				__builtin_trap(); // TODO: corner case in compute binary
 			}
 		}
 
