@@ -917,20 +917,38 @@ cparserexpression_result_t *ExpressionEvalPreprocessor(cparserdictionary_t *defi
 	}
 
 	// Compute expression evaluator and print
-	r = LinkedExpressionListComputeBinary(&list);
-	LinkedExpressionListPrint(list);
-	if ((r->code != EXPRESSION_RESULT_CODE_TRUE) && (r->code != EXPRESSION_RESULT_CODE_FALSE))
+	while (LinkedListNext(list) != NULL)
 	{
-		LinkedExpressionListDelete(list);
-		return r;
+		r = LinkedExpressionListComputeBinary(&list);
+		LinkedExpressionListPrint(list);
+		if ((r->code != EXPRESSION_RESULT_CODE_TRUE) && (r->code != EXPRESSION_RESULT_CODE_FALSE))
+		{
+			LinkedExpressionListDelete(list);
+			return r;
+		}
 	}
+
+	// Take last expression token
+	expression_token_t *et = LinkedListGetItem(list);
+
+	// Check expression token is decoded value
+	if (et->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
+	{
+		// Error: last expression token type shall be decoded value
+		res.code = EXPRESSION_RESULT_CODE_ERROR_LAST_EXPRESSION_TOKEN_SHALL_BE_A_DECODED_VALUE;
+	}
+	else
+	{
+		// Set code depending on token value
+		res.code = (0 != (int64_t)et->data) ? EXPRESSION_RESULT_CODE_TRUE : EXPRESSION_RESULT_CODE_FALSE;
+	}
+	res.row = row;
+	res.column = column;
 
 	// Free list
 	LinkedExpressionListDelete(list);
 
-	__builtin_trap(); // TODO: if literal
-
-	return r;
+	return &res;
 }
 
 

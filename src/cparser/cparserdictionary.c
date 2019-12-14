@@ -47,6 +47,19 @@ cparserdictionary_t * DictionaryNew(void)
 	return d;
 }
 
+void DictionaryDelete(cparserdictionary_t *d)
+{
+	// Delete key identifiers and pairs
+	while (d->pairs_count--)
+	{
+		free((void *)d->pairs[d->pairs_count]->key);
+		free(d->pairs[d->pairs_count]);
+	}
+
+	// Delete dictionary
+	free(d);
+}
+
 void DictionaryRemoveKey(cparserdictionary_t *d, const uint8_t *key)
 {
 	pair_t pp = { key, NULL };
@@ -56,9 +69,13 @@ void DictionaryRemoveKey(cparserdictionary_t *d, const uint8_t *key)
 
 	uint32_t ix = p - d->pairs;	// Keys are disposed in a linear array
 
+	// Delete key identifier and pair
+	free((void *)d->pairs[ix]->key);
+	free(d->pairs[ix]);
+
 	// Decrease pairs, and bulk back copy all remaining pointers
 	d->pairs_count--;
-	memcpy(d->pairs + ix, d->pairs + ix + 1, d->pairs_count - ix);
+	memcpy(d->pairs + ix, d->pairs + ix + 1, sizeof(d->pairs[0]) * (d->pairs_count - ix));
 }
 
 void DictionarySetKeyValue(cparserdictionary_t *d, const uint8_t *key, const void *value)
@@ -176,17 +193,4 @@ const void * DictionaryGetValueByIndex(cparserdictionary_t *d, uint32_t ix)
 		return NULL;
 
 	return d->pairs[ix]->value;
-}
-
-void DictionaryDelete(cparserdictionary_t *d)
-{
-	// Delete keys and pairs
-	while (d->pairs_count--)
-	{
-		free((void *)d->pairs[d->pairs_count]->key);
-		free((void *)d->pairs[d->pairs_count]);
-	}
-
-	// Delete dictionary
-	free(d);
 }

@@ -946,7 +946,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 {
 	if (StringInAscendingSet(s->token.str, keywords_c, KEYWORDS_C_COUNT))
 	{
-		// Trying to define a c keyword
+		// Trying to undefine a c keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Trying to undef a C keyword");
 		oo = ObjectGetParent(oo);
@@ -954,7 +954,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 	}
 	else if (StringInAscendingSet(s->token.str, keywords_preprocessor, KEYWORDS_PREPROCESSOR_COUNT))
 	{
-		// Trying to define a preprocessor keyword
+		// Trying to undefine a preprocessor keyword
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, &s->token);
 		oo->info = _T strdup("Trying to undef a preprocessor keyword");
 		oo = ObjectGetParent(oo);
@@ -962,7 +962,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 	}
 	else if (!DictionaryExistsKey(s->defined, s->token.str))
 	{
-		// Trying to redefine an already defined symbol
+		// Trying to undefine an already undefined symbol
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_WARNING, &s->token);
 		oo->info = _T strdup("Trying to undef an unexisting symbol");
 		oo = ObjectGetParent(oo);
@@ -974,7 +974,7 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF_IDENTIFIER, &s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
-		DictionarySetKeyValue(s->defined, s->token.str, oo);							// Add definition to dictionary
+		DictionaryRemoveKey(s->defined, s->token.str);
 		oo = ObjectGetParent(oo);														// Return to preprocessor
 		oo = ObjectGetParent(oo);														// Return to preprocessor parent
 
