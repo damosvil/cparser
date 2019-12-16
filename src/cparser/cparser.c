@@ -988,8 +988,8 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 static object_t * ProcessPreprocessorStateDefineLiteral(object_t *oo, state_t *s)
 {
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_EXPRESSION, s->token);	// Add define expression
-	oo = ObjectGetParent(oo);													// Return to preprocessor
-	oo = ObjectGetParent(oo);													// Return to preprocessor parent
+	oo = ObjectGetParent(oo);															// Return to preprocessor
+	oo = ObjectGetParent(oo);															// Return to preprocessor parent
 
 	// Return preprocessor state to IDLE
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -1449,8 +1449,7 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 
 	// Prepare token source
 	token_source_t source;
-	source.from = s.file;
-	source.read = (read_callback_t)fgetc;
+	TokenSourceInit(&source, s.file, (read_callback_t)fgetc);
 
 	// Process tokens from file
 	while ((s.state != STATE_ERROR) && TokenNext(s.token, &source, s.tokenizer_flags))

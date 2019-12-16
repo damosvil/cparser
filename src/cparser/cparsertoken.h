@@ -35,7 +35,6 @@ typedef struct token_s
 {
 	token_type_t type;
 	bool first_token_in_line;
-	int16_t last_char;
 	uint32_t row;
 	uint32_t column;
 	uint8_t *str;
@@ -50,8 +49,14 @@ typedef int (*read_callback_t)(void *from);
 typedef struct token_source_s
 {
 	void *from;					// Data source that TokenNext will use to read bytes from with "read" callback function
+	int16_t last_char;			// Last char read
+	uint32_t row;				// Row
+	uint32_t column;			// Column
 	read_callback_t read;		// Callback to read data source
 } token_source_t;
+
+
+void TokenSourceInit(token_source_t *source, void *from, read_callback_t read);
 
 token_t *TokenNew(void);
 void TokenDelete(token_t *tt);

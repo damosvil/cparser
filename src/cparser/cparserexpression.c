@@ -801,10 +801,14 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *expression, uint32_t row, uint32_t column, cparserlinkedlist_t **list)
 {
 	token_t *tt = TokenNew();
-	token_source_t source = { &expression, GetNextChar };
+	token_source_t source;
 	cparserlinkedlist_t *l = NULL;
 	expression_token_t *et = NULL;
 
+	// Initialize token source
+	TokenSourceInit(&source, &expression, GetNextChar);
+
+	// Parse tokens into linked list
 	while (TokenNext(tt, &source, 0))
 	{
 		// Skip
