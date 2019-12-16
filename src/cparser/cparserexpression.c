@@ -187,12 +187,16 @@ static cparserexpression_result_t *LinkedExpressionListComputeDefined(cparserlin
 			}
 			else if (et->type == EXPRESSION_TOKEN_TYPE_IDENTIFIER)
 			{
+				// Store row and column identifier
+				uint32_t row = et->row;
+				uint32_t column = et->column;
+
 				// Replace previous define and definition identifier by a boolean decoded value
 				int64_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
 				cparserlinkedlist_t *defined = LinkedListPrevious(l);
 
 				// Remove identifier
-				ExpressionTokenDelete(LinkedListGetItem(l));
+				ExpressionTokenDelete(et);
 				l = LinkedListDelete(l);
 
 				// Check and delete trailing close parenthesis
@@ -215,10 +219,13 @@ static cparserexpression_result_t *LinkedExpressionListComputeDefined(cparserlin
 					et = LinkedListGetItem(defined);
 					ExpressionTokenDelete(et);
 
-					// Create new expression token
+					// Set decoded value in former defined node
 					et = malloc(sizeof(expression_token_type_t));
 					et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
+					et->row = row;
+					et->column = column;
 					et->data = (void *)value;
+					LinkedListUpdateItem(defined, et);
 
 					// Select next linked list token to defined
 					l = LinkedListNext(defined);
