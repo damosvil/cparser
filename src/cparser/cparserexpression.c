@@ -793,65 +793,65 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 
 static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *expression, uint32_t row, uint32_t column, cparserlinkedlist_t **list)
 {
-	token_t tt = { CPARSER_TOKEN_TYPE_SINGLE_CHAR, true, row, column, malloc(strlen(_t expression) + 1) };
+	token_t *tt = TokenNew();
 	token_source_t source = { &expression, GetNextChar };
 	cparserlinkedlist_t *l = NULL;
 	expression_token_t *et = NULL;
 
-	while (TokenNext(&source, &tt, 0))
+	while (TokenNext(tt, &source, 0))
 	{
 		// Skip
-		if ((tt.type == CPARSER_TOKEN_TYPE_CPP_COMMENT) || (tt.type == CPARSER_TOKEN_TYPE_C_COMMENT))
+		if ((tt->type == CPARSER_TOKEN_TYPE_CPP_COMMENT) || (tt->type == CPARSER_TOKEN_TYPE_C_COMMENT))
 			continue;
 
-		if (tt.type == CPARSER_TOKEN_TYPE_IDENTIFIER)
+		if (tt->type == CPARSER_TOKEN_TYPE_IDENTIFIER)
 		{
 			et = malloc(sizeof(expression_token_t));
 
-			if (StrEq("defined", _t tt.str))
+			if (StrEq("defined", _t tt->str))
 			{
 				et->type = EXPRESSION_TOKEN_TYPE_DEFINED;
-				et->row = tt.row;
-				et->column = tt.column;
+				et->row = tt->row;
+				et->column = tt->column;
 				et->data = NULL;
 			}
 			else
 			{
 				et->type = EXPRESSION_TOKEN_TYPE_IDENTIFIER;
-				et->row = tt.row;
-				et->column = tt.column;
-				et->data = strdup(_t tt.str);
+				et->row = tt->row;
+				et->column = tt->column;
+				et->data = strdup(_t tt->str);
 			}
 		}
-		else if ((tt.type == CPARSER_TOKEN_TYPE_SINGLE_CHAR) && ((tt.str[0] == '(') || (tt.str[0] == ')')))
+		else if ((tt->type == CPARSER_TOKEN_TYPE_SINGLE_CHAR) && ((tt->str[0] == '(') || (tt->str[0] == ')')))
 		{
 			et = malloc(sizeof(expression_token_t));
-			et->type = tt.str[0] == '(' ? EXPRESSION_TOKEN_TYPE_OPEN : EXPRESSION_TOKEN_TYPE_CLOSE;
-			et->row = tt.row;
-			et->column = tt.column;
+			et->type = tt->str[0] == '(' ? EXPRESSION_TOKEN_TYPE_OPEN : EXPRESSION_TOKEN_TYPE_CLOSE;
+			et->row = tt->row;
+			et->column = tt->column;
 			et->data = NULL;
 		}
-		else if ((tt.type == CPARSER_TOKEN_TYPE_OPERATOR) && StringInAscendingSet(tt.str, valid_operators, VALID_OPERATORS_COUNT))
+		else if ((tt->type == CPARSER_TOKEN_TYPE_OPERATOR) && StringInAscendingSet(tt->str, valid_operators, VALID_OPERATORS_COUNT))
 		{
 			et = malloc(sizeof(expression_token_t));
 			et->type = EXPRESSION_TOKEN_TYPE_OPERATOR;
-			et->row = tt.row;
-			et->column = tt.column;
-			et->data = strdup(_t tt.str);
+			et->row = tt->row;
+			et->column = tt->column;
+			et->data = strdup(_t tt->str);
 		}
-		else if (tt.type == CPARSER_TOKEN_TYPE_NUMBER_LITERAL)
+		else if (tt->type == CPARSER_TOKEN_TYPE_NUMBER_LITERAL)
 		{
 			et = malloc(sizeof(expression_token_t));
 			et->type = EXPRESSION_TOKEN_TYPE_DECODED_VALUE;
-			et->row = tt.row;
-			et->column = tt.column;
-			et->data = (void *)atoll(_t tt.str);
+			et->row = tt->row;
+			et->column = tt->column;
+			et->data = (void *)atoll(_t tt->str);
 		}
 		else
 		{
 			res.code = EXPRESSION_RESULT_CODE_ERROR_INCORRECT_TOKEN;
-			res.row = tt.row;
-			res.column = tt.column;
+			res.row = tt->row;
+			res.column = tt->column;
 			break;
 		}
 
@@ -867,7 +867,7 @@ static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *express
 	}
 
 	// Destroy allocated token buffer
-	free(tt.str);
+	TokenDelete(tt);
 
 	// Assign the decoded list to l
 	*list = LinkedListFirst(l);

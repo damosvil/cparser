@@ -35,6 +35,7 @@ typedef struct token_s
 {
 	token_type_t type;
 	bool first_token_in_line;
+	int16_t last_char;
 	uint32_t row;
 	uint32_t column;
 	uint8_t *str;
@@ -52,7 +53,9 @@ typedef struct token_source_s
 	read_callback_t read;		// Callback to read data source
 } token_source_t;
 
-bool TokenNext(token_source_t *source, token_t *tt, uint32_t flags);
+token_t *TokenNew(void);
+void TokenDelete(token_t *tt);
+bool TokenNext(token_t *tt, token_source_t *source, uint32_t flags);
 
 
 #endif /* CPARSERTOKEN_H_ */
