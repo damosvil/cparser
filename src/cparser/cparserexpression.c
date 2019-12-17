@@ -110,27 +110,27 @@ static void LinkedExpressionListPrint(cparserlinkedlist_t *l)
 		{
 
 		case EXPRESSION_TOKEN_TYPE_DEFINED:
-			printf("<%s:defined> ", STR(EXPRESSION_TOKEN_TYPE_DEFINED));
+			printf("defined ");
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_IDENTIFIER:
-			printf("<%s:%s> ", STR(EXPRESSION_TOKEN_TYPE_IDENTIFIER), (char *)et->data);
+			printf("%s ", (char *)et->data);
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_OPERATOR:
-			printf("<%s:%s> ", STR(EXPRESSION_TOKEN_TYPE_OPERATOR), (char *)et->data);
+			printf("%s ", (char *)et->data);
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_OPEN:
-			printf("<%s:(> ", STR(EXPRESSION_TOKEN_TYPE_OPEN));
+			printf("( ");
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_CLOSE:
-			printf("<%s:)> ", STR(EXPRESSION_TOKEN_TYPE_CLOSE));
+			printf(") ");
 			break;
 
 		case EXPRESSION_TOKEN_TYPE_DECODED_VALUE:
-			printf("<%s:%ld> ", STR(EXPRESSION_TOKEN_TYPE_DECODED_VALUE), (int64_t)et->data);
+			printf("%ld ", (intptr_t)et->data);
 			break;
 
 		default:
@@ -192,7 +192,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeDefined(cparserlin
 				uint32_t column = et->column;
 
 				// Replace previous define and definition identifier by a boolean decoded value
-				int64_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
+				intptr_t value = DictionaryExistsKey(defines, et->data) ? 1 : 0;
 				cparserlinkedlist_t *defined = LinkedListPrevious(l);
 
 				// Remove identifier
@@ -276,7 +276,7 @@ static cparserexpression_result_t *LinkedExpressionListReplaceDefinitions(cparse
 	return &res;
 }
 
-static int64_t ComputeUnary(const uint8_t *op, int64_t a)
+static intptr_t ComputeUnary(const uint8_t *op, intptr_t a)
 {
 	if ((op[0] == '!') && (op[1] == 0))
 	{
@@ -366,7 +366,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 			}
 			else
 			{
-				int64_t value = ComputeUnary(et_prev->data, (int64_t)et->data);
+				intptr_t value = ComputeUnary(et_prev->data, (intptr_t)et->data);
 				uint32_t row = et->row;
 				uint32_t column = et->column;
 
@@ -381,7 +381,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 
 				// Remove previous operator
 				ExpressionTokenDelete(et_prev);
-				LinkedExpressionListDelete(prev);
+				LinkedListDelete(prev);
 			}
 		}
 		else
@@ -561,7 +561,7 @@ static int OperatorPreference(const char *a, const char *b)
 	return 0;
 }
 
-static int64_t ComputeBinary(int64_t a, const uint8_t *op, int64_t b)
+static intptr_t ComputeBinary(intptr_t a, const uint8_t *op, intptr_t b)
 {
 	if ((op[0] == '+') && (op[1] == 0))
 	{
@@ -659,7 +659,9 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 		expression_token_t *et_prev = LinkedListGetItem(prev);
 		expression_token_t *et_next = LinkedListGetItem(next);
 
+		cparserlinkedlist_t *prev_prev = LinkedListPrevious(prev);
 		cparserlinkedlist_t *next_next = LinkedListNext(next);
+		expression_token_t *et_prev_prev = LinkedListGetItem(prev_prev);
 		expression_token_t *et_next_next = LinkedListGetItem(next_next);
 
 		if (et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
@@ -698,15 +700,15 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				return &res;
 			}
 			else if (
-					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) ||
+					((et_prev != NULL) && (et_prev->type == EXPRESSION_TOKEN_TYPE_OPEN)) &&
 					((et_next != NULL) && (et_next->type == EXPRESSION_TOKEN_TYPE_CLOSE))
 				)
 			{
 				// Operand is alone in between parenthesis, so remove them
 				ExpressionTokenDelete(et_next);
 				ExpressionTokenDelete(et_prev);
-				LinkedExpressionListDelete(next);
-				LinkedExpressionListDelete(prev);
+				LinkedListDelete(next);
+				LinkedListDelete(prev);
 			}
 		}
 		else if (et->type == EXPRESSION_TOKEN_TYPE_OPERATOR)
@@ -731,8 +733,8 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				return &res;
 			}
 			else if (
-					((et_prev != NULL) && (et_prev->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
-					((et_next != NULL) && (et_next->type != EXPRESSION_TOKEN_TYPE_OPEN) && (et_next->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+					((et_prev_prev != NULL) && (et_prev_prev->type != EXPRESSION_TOKEN_TYPE_OPEN) && (et_prev_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
+					((et_next_next != NULL) && (et_next_next->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_next_next->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
 				)
 			{
 				// Operator lacks of valid operands or parenthesis arround
@@ -750,6 +752,11 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 						// No next operator so no precedence checking
 						(et_next_next == NULL)
 						||
+						// Close parenthesis so no precedence checking
+						(
+							(et_next_next != NULL) &&
+							(et_next_next->type == EXPRESSION_TOKEN_TYPE_CLOSE))
+						||
 						// There is a operator next so check operator precedence
 						(
 							(et_next_next != NULL) &&
@@ -759,7 +766,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 					)
 				{
 					// Perform operation
-					int64_t value = ComputeBinary((int64_t)et_prev->data, et->data, (int64_t)et_next->data);
+					intptr_t value = ComputeBinary((intptr_t)et_prev->data, et->data, (intptr_t)et_next->data);
 					uint32_t row = et->row;
 					uint32_t column = et->column;
 
@@ -778,11 +785,6 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 					LinkedListDelete(prev);
 					LinkedListDelete(next);
 				}
-			}
-			else
-			{
-				// Corner case
-				__builtin_trap(); // TODO: corner case in compute binary
 			}
 		}
 
@@ -956,7 +958,7 @@ cparserexpression_result_t *ExpressionEvalPreprocessor(cparserdictionary_t *defi
 	else
 	{
 		// Set code depending on token value
-		res.code = (0 != (int64_t)et->data) ? EXPRESSION_RESULT_CODE_TRUE : EXPRESSION_RESULT_CODE_FALSE;
+		res.code = (0 != (intptr_t)et->data) ? EXPRESSION_RESULT_CODE_TRUE : EXPRESSION_RESULT_CODE_FALSE;
 	}
 	res.row = row;
 	res.column = column;
