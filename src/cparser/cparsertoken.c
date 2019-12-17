@@ -102,6 +102,11 @@ static bool ParseDefineFunctionParamsAcceptanceFilter(uint16_t last_char, uint32
 			(length > 2 && *(end - 1) == '\n' && *(end - 2) == '\r' && *(end - 3) == '\\');
 }
 
+static bool ParseBackSlashAcceptanceFilter(uint16_t last_char, uint32_t length, uint8_t *end)
+{
+	return last_char != '\n';
+}
+
 /**
  * Digests a string from a file
  *
@@ -319,6 +324,17 @@ static void ParseSlash(token_source_t *source, token_t *tt)
 	}
 }
 
+static void ParseBackSlash(token_source_t *source, token_t *tt)
+{
+	// Include file name literal
+	tt->type = CPARSER_TOKEN_TYPE_BACKSLASH;
+	tt->row = source->row;
+	tt->column = source->column;
+
+	// Digest include literal with include acceptance filter
+	ParseDigestString(source, tt->str, ParseBackSlashAcceptanceFilter);
+}
+
 static void ParseInvalidCharacter(token_source_t *source, token_t *tt)
 {
 	// >>>>>>>>>>>>>>>>>>>>>>>>>    Invalid character
@@ -455,6 +471,11 @@ bool TokenNext(token_t *tt, token_source_t *source, uint32_t flags)
 	{
 		// Slash token
 		ParseSlash(source, tt);
+	}
+	else if (source->last_char == '\\')
+	{
+		// Backslash token
+		ParseBackSlash(source, tt);
 	}
 	else
 	{

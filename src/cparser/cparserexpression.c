@@ -858,6 +858,11 @@ static cparserexpression_result_t *ExpressionToLinkedList(const uint8_t *express
 			et->column = tt->column;
 			et->data = (void *)atoll(_t tt->str);
 		}
+		else if (tt->type == CPARSER_TOKEN_TYPE_BACKSLASH)
+		{
+			/* Do not add backslash */
+			continue;
+		}
 		else
 		{
 			res.code = EXPRESSION_RESULT_CODE_ERROR_INCORRECT_TOKEN;
