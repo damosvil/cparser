@@ -350,14 +350,20 @@ static cparserexpression_result_t *LinkedExpressionListComputeUnary(cparserlinke
 				res.column = et->column;
 				return &res;
 			}
-			else if ((et_prev_prev != NULL) && StrEq(et_prev_prev->data, "-") && StrEq(et_prev->data, "-"))
+			else if (
+					(et_prev_prev != NULL) && (et_prev_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+					StrEq(et_prev_prev->data, "-") && StrEq(et_prev->data, "-")
+				)
 			{
 				res.code = EXPRESSION_RESULT_CODE_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS;
 				res.row = et->row;
 				res.column = et->column;
 				return &res;
 			}
-			else if ((et_prev_prev != NULL) && StrEq(et_prev_prev->data, "+") && StrEq(et_prev->data, "+"))
+			else if (
+					(et_prev_prev != NULL) && (et_prev_prev->type == EXPRESSION_TOKEN_TYPE_OPERATOR) &&
+					StrEq(et_prev_prev->data, "+") && StrEq(et_prev->data, "+")
+				)
 			{
 				res.code = EXPRESSION_RESULT_CODE_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS;
 				res.row = et->row;
@@ -659,9 +665,7 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 		expression_token_t *et_prev = LinkedListGetItem(prev);
 		expression_token_t *et_next = LinkedListGetItem(next);
 
-		cparserlinkedlist_t *prev_prev = LinkedListPrevious(prev);
 		cparserlinkedlist_t *next_next = LinkedListNext(next);
-		expression_token_t *et_prev_prev = LinkedListGetItem(prev_prev);
 		expression_token_t *et_next_next = LinkedListGetItem(next_next);
 
 		if (et->type == EXPRESSION_TOKEN_TYPE_DECODED_VALUE)
@@ -733,8 +737,8 @@ static cparserexpression_result_t *LinkedExpressionListComputeBinary(cparserlink
 				return &res;
 			}
 			else if (
-					((et_prev_prev != NULL) && (et_prev_prev->type != EXPRESSION_TOKEN_TYPE_OPEN) && (et_prev_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
-					((et_next_next != NULL) && (et_next_next->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_next_next->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
+					((et_prev != NULL) && (et_prev->type != EXPRESSION_TOKEN_TYPE_CLOSE) && (et_prev->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE)) ||
+					((et_next != NULL) && (et_next->type != EXPRESSION_TOKEN_TYPE_OPEN) && (et_next->type != EXPRESSION_TOKEN_TYPE_DECODED_VALUE))
 				)
 			{
 				// Operator lacks of valid operands or parenthesis arround
