@@ -928,7 +928,7 @@ static object_t * ProcessPreprocessorStateDefineIdentifier(object_t *oo, state_t
 	else
 	{
 		// Add define identifier
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, s->token);		// Add identifier to preprocessor
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IDENTIFIER, s->token);		// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
 		DictionarySetKeyValue(s->defined, s->token->str, oo);							// Add definition to dictionary
@@ -970,13 +970,13 @@ static object_t * ProcessPreprocessorStateUndefIdentifier(object_t *oo, state_t 
 	}
 	else
 	{
-		// Add undef identifier
-		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_UNDEF_IDENTIFIER, s->token);		// Add identifier to preprocessor
+		// Add preprocessor identifier
+		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IDENTIFIER, s->token);	// Add identifier to preprocessor
 
 		// Add define identifier to dictionary
 		DictionaryRemoveKey(s->defined, s->token->str);
-		oo = ObjectGetParent(oo);														// Return to preprocessor
-		oo = ObjectGetParent(oo);														// Return to preprocessor parent
+		oo = ObjectGetParent(oo);															// Return to preprocessor
+		oo = ObjectGetParent(oo);															// Return to preprocessor parent
 
 		// Return to IDLE preprocessor state
 		s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
@@ -1247,7 +1247,7 @@ static object_t * ProcessStateFunctionDeclared(object_t *oo, state_t *s)
 
 static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 {
-	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, s->token);	// Add include to preprocessor
+	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IDENTIFIER, s->token);	// Add include to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
@@ -1272,7 +1272,7 @@ static object_t * ProcessPreprocessorStateIfndef(object_t *oo, state_t *s)
 
 static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 {
-	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE_IDENTIFIER, s->token);	// Add include to preprocessor
+	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IDENTIFIER, s->token);	// Add include to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor
 	oo = ObjectGetParent(oo);													// Return to preprocessor parent
 
@@ -1297,7 +1297,7 @@ static object_t * ProcessPreprocessorStateIfdef(object_t *oo, state_t *s)
 
 static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 {
-	cparserexpression_result_t *r;
+	cparserexpression_result_t r;
 
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_EXPRESSION, s->token);	// Add include to preprocessor
 	oo = ObjectGetParent(oo);															// Return to preprocessor
@@ -1306,84 +1306,79 @@ static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
 
 	// Evaluate expression
-	r = ExpressionEvalPreprocessor(s->defined, s->token->str, s->token->row, s->token->column);
+	ExpressionEvalPreprocessor(s->defined, s->token->str, s->token->row, s->token->column, &r);
 
-	if (r->code == EXPRESSION_RESULT_CODE_TRUE)
+	if (r.code == EXPRESSION_RESULT_SUCCESS)
 	{
 		// Increase conditional compilation stack level
 		StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
 
-		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_ACCEPTING;
-	}
-	else if (r->code == EXPRESSION_RESULT_CODE_FALSE)
-	{
-		// Increase conditional compilation stack level
-		StackPush(s->conditional_compilation_stack, &s->conditional_compilation_state);
-
-		s->conditional_compilation_state = CONDITIONAL_COMPILATION_STATE_LOOKING;
+		s->conditional_compilation_state = (r.value != 0) ?
+				CONDITIONAL_COMPILATION_STATE_ACCEPTING : CONDITIONAL_COMPILATION_STATE_LOOKING;
 	}
 	else
 	{
 		oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, s->token);
 
-		if (r->code == EXPRESSION_RESULT_CODE_ERROR_INCORRECT_TOKEN)
+		if (r.code == EXPRESSION_RESULT_ERROR_INCORRECT_TOKEN)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH)
+		else if (r.code == EXPRESSION_RESULT_ERROR_CLOSING_PARENTHESYS_DOES_NOT_MATCH)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: parenthesis doesn't match.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_OPERATOR)
+		else if (r.code == EXPRESSION_RESULT_ERROR_DEFINED_OPERATOR)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: incorrect expression in defined operator.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_EVAL)
+		else if (r.code == EXPRESSION_RESULT_ERROR_DEFINED_EVAL)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: error during evaluation of defined operators.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_DEFINED_WITHOUT_IDENTIFIER)
+		else if (r.code == EXPRESSION_RESULT_ERROR_DEFINED_WITHOUT_IDENTIFIER)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: defined without identifier.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS)
+		else if (r.code == EXPRESSION_RESULT_ERROR_MINUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_MINUS)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Minus operator cannot be after another minus operator");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS)
+		else if (r.code == EXPRESSION_RESULT_ERROR_PLUS_OPERATOR_CANNOT_BE_AFTER_ANOTHER_PLUS)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Plus operator cannot be abter another plus operator");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION)
+		else if (r.code == EXPRESSION_RESULT_ERROR_INVALID_UNARY_OPERATOR_IN_EXPRESSION)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Invalid unary operator in expression.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_INVERTED_PARENTHESIS_NEAR_OPERAND)
+		else if (r.code == EXPRESSION_RESULT_ERROR_INVERTED_PARENTHESIS_NEAR_OPERAND)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Inverted parenthesis near operand.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_OPERAND_BESIDES_OPERAND)
+		else if (r.code == EXPRESSION_RESULT_ERROR_OPERAND_BESIDES_OPERAND)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Operand besides operand.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_INCORRECT_PARENTHESIS)
+		else if (r.code == EXPRESSION_RESULT_ERROR_INCORRECT_PARENTHESIS)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Incorrect parenthesis.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_INVALID_NEIGHBOURS)
+		else if (r.code == EXPRESSION_RESULT_ERROR_OPERATOR_WITH_INVALID_NEIGHBOURS)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Operator with invalid neighbours.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_OPERATOR_WITH_NO_OPERANDS)
+		else if (r.code == EXPRESSION_RESULT_ERROR_OPERATOR_WITH_NO_OPERANDS)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Operator with no operands.");
 		}
-		else if (r->code == EXPRESSION_RESULT_CODE_ERROR_LAST_EXPRESSION_TOKEN_SHALL_BE_A_DECODED_VALUE)
+		else if (r.code == EXPRESSION_RESULT_ERROR_LAST_EXPRESSION_TOKEN_SHALL_BE_A_DECODED_VALUE)
 		{
 			oo->info = _T strdup("Incorrect if preprocessor expression: Last expression token shall be a decoded value.");
 		}
 		else
 		{
+			__builtin_trap(); // TODO: implement lacking error type
 			oo->info = _T strdup("Incorrect if preprocessor expression: ?????.");
 		}
 		oo = ObjectGetParent(oo);

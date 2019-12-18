@@ -38,8 +38,9 @@ int main()
 
 	cparserdictionary_t *defines = DictionaryNew();
 	DictionarySetKeyValue(defines, _T "DEBUG", NULL);
-	DictionarySetKeyValue(defines, _T "__GNUC__", "7");
-	DictionarySetKeyValue(defines, _T "__GNUC_MINOR__", "4");
+	DictionarySetKeyValue(defines, _T "__GNUC__", ObjectNewPreprocessorExpression(_T "7"));
+	DictionarySetKeyValue(defines, _T "__GNUC_MINOR__", ObjectNewPreprocessorExpression(_T "4"));
+	DictionarySetKeyValue(defines, _T "__STDC_VERSION__", ObjectNewPreprocessorExpression(_T"201112"));
 
 
 	cparserpaths_t *cpaths = PathsNew();

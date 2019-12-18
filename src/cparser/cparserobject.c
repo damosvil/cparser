@@ -23,10 +23,9 @@ static const char *object_type_names[OBJECT_TYPE_COUNT] =
 		STR(OBJECT_TYPE_C_COMMENT),
 		STR(OBJECT_TYPE_CPP_COMMENT),
 		STR(OBJECT_TYPE_DEFINE),
-		STR(OBJECT_TYPE_DEFINE_IDENTIFIER),
-		STR(OBJECT_TYPE_DEFINE_EXPRESSION),
 		STR(OBJECT_TYPE_UNDEF),
-		STR(OBJECT_TYPE_UNDEF_IDENTIFIER),
+		STR(OBJECT_TYPE_PREPROCESSOR_IDENTIFIER),
+		STR(OBJECT_TYPE_PREPROCESSOR_EXPRESSION),
 		STR(OBJECT_TYPE_PREPROCESSOR_DIRECTIVE),
 		STR(OBJECT_TYPE_PREPROCESSOR_IF),
 		STR(OBJECT_TYPE_PREPROCESSOR_IFDEF),
@@ -84,6 +83,25 @@ void ObjectAddChild(object_t *parent, object_t *child)
 	// Add object to parent if it is not root node
 	if (parent != NULL)
 		AddToPtrArray(child, (void ***)&parent->children, &parent->children_size, &parent->children_count);
+}
+
+object_t *ObjectNewPreprocessorExpression(const uint8_t *expression)
+{
+	object_t *oo = malloc(sizeof(object_t));
+
+	// Initialize new object
+	oo->type = OBJECT_TYPE_PREPROCESSOR_EXPRESSION;
+	oo->parent = NULL;
+	oo->children = NULL;
+	oo->children_size = 0;
+	oo->children_count = 0;
+	oo->info = NULL;
+	oo->row = 0;
+	oo->column = 0;
+	oo->data = _T strdup(_t expression);
+
+	// Return children
+	return oo;
 }
 
 object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t *token)

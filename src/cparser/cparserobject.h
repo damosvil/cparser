@@ -15,10 +15,9 @@ typedef enum object_type_e
 	OBJECT_TYPE_C_COMMENT = 0,
 	OBJECT_TYPE_CPP_COMMENT,
 	OBJECT_TYPE_DEFINE,
-	OBJECT_TYPE_DEFINE_IDENTIFIER,
-	OBJECT_TYPE_PREPROCESSOR_EXPRESSION,
 	OBJECT_TYPE_UNDEF,
-	OBJECT_TYPE_UNDEF_IDENTIFIER,
+	OBJECT_TYPE_PREPROCESSOR_IDENTIFIER,
+	OBJECT_TYPE_PREPROCESSOR_EXPRESSION,
 	OBJECT_TYPE_PREPROCESSOR_DIRECTIVE,
 	OBJECT_TYPE_PREPROCESSOR_IF,
 	OBJECT_TYPE_PREPROCESSOR_IFDEF,
@@ -86,6 +85,7 @@ typedef struct object_s
 	uint8_t * info;
 } object_t;
 
+object_t *ObjectNewPreprocessorExpression(const uint8_t *expression);
 void ObjectAddChild(object_t *parent, object_t *child);
 object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t *token);
 object_t *ObjectGetChildByType(object_t *parent, object_type_t type);

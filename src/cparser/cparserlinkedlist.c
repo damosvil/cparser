@@ -58,6 +58,9 @@ cparserlinkedlist_t * LinkedListDelete(cparserlinkedlist_t *l)
 
 cparserlinkedlist_t *LinkedListFirst(cparserlinkedlist_t *l)
 {
+	if (l == NULL)
+		return NULL;
+
 	while (l->previous)
 		l = l->previous;
 
@@ -66,6 +69,9 @@ cparserlinkedlist_t *LinkedListFirst(cparserlinkedlist_t *l)
 
 cparserlinkedlist_t *LinkedListLast(cparserlinkedlist_t *l)
 {
+	if (l == NULL)
+		return NULL;
+
 	while (l->next)
 		l = l->next;
 
