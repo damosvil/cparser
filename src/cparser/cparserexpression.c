@@ -291,12 +291,19 @@ static void LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cpars
 				if (oo->type == OBJECT_TYPE_PREPROCESSOR_EXPRESSION)
 				{
 					// Recursively evaluate the expression
-					uint32_t kk = 1;
+					ExpressionEvalPreprocessor(defines, oo->data, row, column, res);
 
+					// Check expression result
+					if (!res->code == EXPRESSION_RESULT_SUCCESS)
+						return;
+
+					// Assign expression result value
+					value = res->value;
 				}
 				else if (oo->type == OBJECT_TYPE_PREPROCESSOR_IDENTIFIER)
 				{
-
+					// In this case oo should have a preprocessor expression sibbling
+					__builtin_trap(); // TODO: implement looking for preprocessor expression sibbling
 				}
 				else
 				{
