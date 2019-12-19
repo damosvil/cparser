@@ -1549,7 +1549,8 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			}
 			else
 			{
-				__builtin_trap(); // TODO: unimplemented preprocessor state
+				/* Do nothing in looking, skipping neither skipping else */
+				printf("SKIPPING\n");
 			}
 		}
 	}
