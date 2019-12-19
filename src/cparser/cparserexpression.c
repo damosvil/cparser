@@ -303,7 +303,7 @@ static void LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cpars
 				else if (oo->type == OBJECT_TYPE_PREPROCESSOR_IDENTIFIER)
 				{
 					// In this case oo should have a preprocessor expression sibbling
-					ObjectPrintRoot(_T "debug.txt", oo);
+					ObjectPrintRoot(_T "debug.log", oo);
 					__builtin_trap(); // TODO: implement looking for preprocessor expression sibbling
 				}
 				else

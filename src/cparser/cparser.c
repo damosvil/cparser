@@ -61,6 +61,7 @@ typedef enum preprocessor_state_e
 	PREPROCESSOR_STATE_IFNDEF,				// Parsing ifndef identifier
 	PREPROCESSOR_STATE_IFDEF,				// Parsing ifdef identifier
 	PREPROCESSOR_STATE_IF_LITERAL,			// Parsing if expression as literal
+	PREPROCESSOR_STATE_WARNING,				// Parsing warning string literal
 	PREPROCESSOR_STATE_ERROR,				// Parsing error string literal
 } preprocessor_state_t;
 
@@ -486,6 +487,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			__builtin_trap(); // TODO: pragma
 		}
+		else if (StrEq(_t s->token->str, "warning"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_WARNING, s->token);	// Add warning to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_WARNING;
+		}
 		else if (StrEq(_t s->token->str, "error"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ERROR, s->token);	// Add error to preprocessor object
@@ -577,6 +586,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		{
 			__builtin_trap(); // TODO: pragma
 		}
+		else if (StrEq(_t s->token->str, "warning"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_WARNING, s->token);	// Add warning to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_WARNING;
+		}
 		else if (StrEq(_t s->token->str, "error"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_ERROR, s->token);	// Add error to preprocessor object
@@ -653,7 +670,8 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		if (
 				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
 				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
-				StrEq(_t s->token->str, "error"))
+				StrEq(_t s->token->str, "warning") || StrEq(_t s->token->str, "error")
+			)
 		{
 			// Preprocessor directive to skip, so, return to preprocessor parent
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
@@ -707,7 +725,8 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		if (
 				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
 				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
-				StrEq(_t s->token->str, "error"))
+				StrEq(_t s->token->str, "warning") || StrEq(_t s->token->str, "error")
+			)
 		{
 			// Preprocessor directive to skip, so, return to preprocessor parent
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
@@ -760,7 +779,8 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		if (
 				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
 				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
-				StrEq(_t s->token->str, "error"))
+				StrEq(_t s->token->str, "warning") || StrEq(_t s->token->str, "error")
+			)
 		{
 			// Preprocessor directive to skip, so, return to preprocessor parent
 			oo = ObjectGetParent(oo);													// Return to preprocessor parent
@@ -836,6 +856,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		else if (StrEq(_t s->token->str, "pragma"))
 		{
 			__builtin_trap(); // TODO: pragma
+		}
+		else if (StrEq(_t s->token->str, "warning"))
+		{
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_WARNING, s->token);	// Add warning to preprocessor object
+			oo = ObjectGetParent(oo);														// Return to preprocessor
+
+			// Go to preprocessor state ERROR to read error string literal
+			s->preprocessor_state = PREPROCESSOR_STATE_WARNING;
 		}
 		else if (StrEq(_t s->token->str, "error"))
 		{
@@ -1423,6 +1451,18 @@ static object_t * ProcessPreprocessorStateIfLiteral(object_t *oo, state_t *s)
 	return oo;
 }
 
+static object_t * ProcessPreprocessorStateWarning(object_t *oo, state_t *s)
+{
+	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_WARNING, s->token);	// Add warning
+	oo = ObjectGetParent(oo);											// Return to preprocessor
+	oo = ObjectGetParent(oo);											// Return to preprocessor parent
+
+	// Return to idle preprocessor state
+	s->preprocessor_state = PREPROCESSOR_STATE_IDLE;
+
+	return oo;
+}
+
 static object_t * ProcessPreprocessorStateError(object_t *oo, state_t *s)
 {
 	oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, s->token);	// Add error
@@ -1535,6 +1575,10 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			{
 				oo = ProcessPreprocessorStateIfLiteral(oo, &s);
 			}
+			else if (s.preprocessor_state == PREPROCESSOR_STATE_WARNING)
+			{
+				oo = ProcessPreprocessorStateWarning(oo, &s);
+			}
 			else if (s.preprocessor_state == PREPROCESSOR_STATE_ERROR)
 			{
 				oo = ProcessPreprocessorStateError(oo, &s);
@@ -1588,10 +1632,7 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 	}
 
 	// Debugging
-	ObjectPrintRoot("debug.log", oo);
-	if (s.state == STATE_ERROR)
-		__builtin_trap(); // TODO: unimplemented state
-
+	ObjectPrintRoot(_T "debug.log", oo);
 
 	// Delete token requested str buffer
 	TokenDelete(s.token);
