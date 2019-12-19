@@ -91,8 +91,8 @@ object_t *ObjectAddChildFromToken(object_t *parent, object_type_t type, token_t 
 object_t *ObjectGetChildByType(object_t *parent, object_type_t type);
 object_t *ObjectGetLastChild(object_t *parent, object_type_t type);
 object_t *ObjectGetParent(object_t *o);
-void ObjectPrint(object_t *o, uint32_t level);
-void ObjectPrintRoot(object_t *o);
+void ObjectPrint(FILE *f, const object_t *o, uint32_t level);
+void ObjectPrintRoot(const uint8_t *filename, const object_t *o);
 
 
 #endif /* CPARSER_CPARSEROBJECT_H_ */

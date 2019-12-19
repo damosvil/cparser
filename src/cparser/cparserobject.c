@@ -156,47 +156,58 @@ object_t *ObjectGetLastChild(object_t *parent, object_type_t type)
 
 object_t *ObjectGetParent(object_t *o)
 {
-	return o ? o->parent : NULL;
+	return (o != NULL) ? o->parent : NULL;
 }
 
-void ObjectPrint(object_t *o, uint32_t level)
+void ObjectPrint(FILE *f, const object_t *o, uint32_t level)
 {
 	if (!o)
 		return;
 
-	printf("%*c<object type=\"%s\" row=\"%d\" column=\"%d\">\n", 4 * level, ' ', object_type_names[o->type], o->row, o->column);
+	fprintf(f, "%*c<object type=\"%s\" row=\"%d\" column=\"%d\">\n", 4 * level, ' ', object_type_names[o->type], o->row, o->column);
 
 	if (o->data && strlen(_t o->data))
 	{
-		printf("%*c<data>\n", 4 * (level + 1), ' ');
-		printf("%*c%s\r\n", 4 * (level + 2), ' ', o->data);
-		printf("%*c</data>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c<data>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c%s\r\n", 4 * (level + 2), ' ', o->data);
+		fprintf(f, "%*c</data>\n", 4 * (level + 1), ' ');
 	}
 
 	if (o->info && strlen(_t o->info))
 	{
-		printf("%*c<info>\n", 4 * (level + 1), ' ');
-		printf("%*c%s\n", 4 * (level + 2), ' ', o->info);
-		printf("%*c</info>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c<info>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c%s\n", 4 * (level + 2), ' ', o->info);
+		fprintf(f, "%*c</info>\n", 4 * (level + 1), ' ');
 	}
 
 	if (o->children_count)
 	{
-		printf("%*c<children>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c<children>\n", 4 * (level + 1), ' ');
 		for (uint32_t i = 0; i < o->children_count; i++)
 		{
-			ObjectPrint(o->children[i], level + 2);
+			ObjectPrint(f, o->children[i], level + 2);
 		}
-		printf("%*c</children>\n", 4 * (level + 1), ' ');
+		fprintf(f, "%*c</children>\n", 4 * (level + 1), ' ');
 	}
 
-	printf("%*c</object>\n", 4 * level, ' ');
+	fprintf(f, "%*c</object>\n", 4 * level, ' ');
 }
 
-void ObjectPrintRoot(object_t *o)
+void ObjectPrintRoot(const uint8_t *filename, const object_t *o)
 {
+	FILE *f;
+
+	if (filename == NULL || o == NULL)
+		return;
+
+	f = fopen(_t filename, "w");
+	if (f == NULL)
+		return;
+
 	while (o->parent)
 		o = o->parent;
 
-	ObjectPrint(o, 0);
+	ObjectPrint(f, o, 0);
+
+	fclose(f);
 }

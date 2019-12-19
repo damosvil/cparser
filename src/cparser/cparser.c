@@ -650,7 +650,15 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_LOOKING:
-		if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
+		if (
+				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
+				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
+				StrEq(_t s->token->str, "error"))
+		{
+			// Preprocessor directive to skip, so, return to preprocessor parent
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+		}
+		else if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, s->token);	// Add if to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
@@ -696,7 +704,15 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING:
-		if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
+		if (
+				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
+				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
+				StrEq(_t s->token->str, "error"))
+		{
+			// Preprocessor directive to skip, so, return to preprocessor parent
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+		}
+		else if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, s->token);	// Add endif to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
@@ -741,7 +757,15 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		break;
 
 	case CONDITIONAL_COMPILATION_STATE_SKIPPING_ELSE:
-		if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
+		if (
+				StrEq(_t s->token->str, "include") || StrEq(_t s->token->str, "define") ||
+				StrEq(_t s->token->str, "undef")   || StrEq(_t s->token->str, "pragma") ||
+				StrEq(_t s->token->str, "error"))
+		{
+			// Preprocessor directive to skip, so, return to preprocessor parent
+			oo = ObjectGetParent(oo);													// Return to preprocessor parent
+		}
+		else if (StrEq(_t s->token->str, "if") || StrEq(_t s->token->str, "ifdef") || StrEq(_t s->token->str, "ifndef"))
 		{
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_PREPROCESSOR_IF, s->token);	// Add if to preprocessor object
 			oo = ObjectGetParent(oo);													// Return to preprocessor
@@ -764,7 +788,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
-		if (StrEq(_t s->token->str, "else"))
+		else if (StrEq(_t s->token->str, "else"))
 		{
 			// #else after #else
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, s->token);
@@ -796,7 +820,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 		}
 		else if (StrEq(_t s->token->str, "define"))
 		{
-			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, s->token);	// Add define to preprocessor object
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_DEFINE, s->token);		// Add define to preprocessor object
 			oo = ObjectGetParent(oo);											// Return to preprocessor
 			s->preprocessor_state = PREPROCESSOR_STATE_DEFINE_IDENTIFIER;
 			s->tokenizer_flags = CPARSER_TOKEN_FLAG_PARSE_DEFINE_IDENTIFIER;
@@ -851,7 +875,7 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 			oo = ObjectGetParent(oo);
 			s->state = STATE_ERROR;
 		}
-		if (StrEq(_t s->token->str, "else"))
+		else if (StrEq(_t s->token->str, "else"))
 		{
 			// #else after #else
 			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, s->token);
@@ -870,6 +894,14 @@ static object_t * ProcessPreprocessorStateNewDirective(object_t *oo, state_t *s)
 
 			// Pop conditional compilation state
 			StackPop(s->conditional_compilation_stack, &s->conditional_compilation_state);
+		}
+		else
+		{
+			// Invalid preprocessor directive
+			oo = ObjectAddChildFromToken(oo, OBJECT_TYPE_ERROR, s->token);
+			oo->info = _T strdup("Invalid preprocessor directive");
+			oo = ObjectGetParent(oo);
+			s->state = STATE_ERROR;
 		}
 		break;
 
@@ -1554,6 +1586,12 @@ object_t *CParserParse(cparserdictionary_t *dictionary, cparserpaths_t *paths, c
 			}
 		}
 	}
+
+	// Debugging
+	ObjectPrintRoot("debug.log", oo);
+	if (s.state == STATE_ERROR)
+		__builtin_trap(); // TODO: unimplemented state
+
 
 	// Delete token requested str buffer
 	TokenDelete(s.token);

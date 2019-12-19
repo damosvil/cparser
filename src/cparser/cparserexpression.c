@@ -280,7 +280,7 @@ static void LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cpars
 
 		if (et->type == EXPRESSION_TOKEN_TYPE_IDENTIFIER)
 		{
-			object_t *oo = DictionaryGetKeyValue(defines, et->data);
+			const object_t *oo = DictionaryGetKeyValue(defines, et->data);
 			intptr_t value = 0;
 			uint32_t row = et->row;
 			uint32_t column = et->column;
@@ -303,6 +303,7 @@ static void LinkedExpressionListReplaceDefinitions(cparserlinkedlist_t *l, cpars
 				else if (oo->type == OBJECT_TYPE_PREPROCESSOR_IDENTIFIER)
 				{
 					// In this case oo should have a preprocessor expression sibbling
+					ObjectPrintRoot(_T "debug.txt", oo);
 					__builtin_trap(); // TODO: implement looking for preprocessor expression sibbling
 				}
 				else
